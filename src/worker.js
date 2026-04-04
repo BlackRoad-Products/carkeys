@@ -161,8 +161,6 @@ async function decryptData(encryptedStr, password) {
   return new TextDecoder().decode(decrypted);
 }
 
-let dbReady = false;
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -202,7 +200,7 @@ export default {
     // ─── Vault API endpoints (D1-backed) ───
     if (path.startsWith('/api/')) {
       try {
-        if (!dbReady) { await ensureCKTables(env.DB); dbReady = true; }
+        await ensureCKTables(env.DB);
 
         // ─── List devices ───
         if (path === '/api/devices' && request.method === 'GET') {
@@ -2047,6 +2045,789 @@ Give a 3-sentence compliance summary. Identify the single most impactful improve
         }
 
 
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Passwordless Login (Magic Link) ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/passwordless' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.email) return json({ error: 'email required' }, cors, 400);
+
+          const email = body.email.toLowerCase().trim().slice(0, 200);
+          const token = crypto.randomUUID() + '-' + crypto.randomUUID();
+          const id = crypto.randomUUID().slice(0, 8);
+          const ttlMinutes = Math.min(Math.max(parseInt(body.ttl_minutes) || 15, 5), 60);
+          const expiresAt = new Date(Date.now() + ttlMinutes * 60000).toISOString();
+
+          await env.DB.prepare("INSERT INTO ck_magic_links (id, email, token, expires_at, used, created_at) VALUES (?,?,?,?,0,datetime('now'))")
+            .bind(id, email, token, expiresAt).run();
+
+          const magicUrl = `${url.origin}/api/passwordless/verify?token=${token}`;
+          await logAudit(env.DB, 'magic_link_created', id, `Magic link created for ${email}, expires ${expiresAt}`);
+          stampChain('magic_link', id, email);
+
+          return json({
+            ok: true,
+            id,
+            email,
+            magic_link: magicUrl,
+            token,
+            expires_at: expiresAt,
+            ttl_minutes: ttlMinutes,
+            message: `Magic login link generated for ${email}. Link expires in ${ttlMinutes} minutes. Send this link to the user via email.`,
+          }, cors, 201);
+        }
+
+        // ─── Verify magic link ───
+        if (path === '/api/passwordless/verify' && request.method === 'GET') {
+          const token = url.searchParams.get('token');
+          if (!token) return json({ error: 'token required' }, cors, 400);
+
+          const link = await env.DB.prepare('SELECT * FROM ck_magic_links WHERE token=?').bind(token).first();
+          if (!link) return json({ error: 'Invalid or expired magic link' }, cors, 404);
+
+          if (link.used) return json({ error: 'Magic link has already been used' }, cors, 410);
+          if (new Date(link.expires_at) < new Date()) {
+            await env.DB.prepare('DELETE FROM ck_magic_links WHERE id=?').bind(link.id).run();
+            return json({ error: 'Magic link has expired' }, cors, 410);
+          }
+
+          // Mark as used and create a session token
+          await env.DB.prepare("UPDATE ck_magic_links SET used=1, used_at=datetime('now') WHERE id=?").bind(link.id).run();
+
+          const sessionToken = crypto.randomUUID();
+          const sessionExpires = new Date(Date.now() + 24 * 3600000).toISOString();
+          const sessionId = crypto.randomUUID().slice(0, 8);
+
+          await env.DB.prepare("INSERT INTO ck_sessions (id, email, session_token, expires_at, created_at) VALUES (?,?,?,?,datetime('now'))")
+            .bind(sessionId, link.email, sessionToken, sessionExpires).run();
+
+          await logAudit(env.DB, 'passwordless_login', sessionId, `Passwordless login for ${link.email}`);
+          return json({
+            ok: true,
+            authenticated: true,
+            email: link.email,
+            session_token: sessionToken,
+            session_id: sessionId,
+            expires_at: sessionExpires,
+            message: 'Authentication successful. Use the session_token for subsequent requests.',
+          }, cors);
+        }
+
+        // ─── List magic links ───
+        if (path === '/api/passwordless' && request.method === 'GET') {
+          const rows = await env.DB.prepare('SELECT id, email, expires_at, used, created_at, used_at FROM ck_magic_links ORDER BY created_at DESC LIMIT 50').all();
+          const active = (rows.results || []).filter(l => !l.used && new Date(l.expires_at) > new Date());
+          return json({ magic_links: rows.results || [], active_count: active.length }, cors);
+        }
+
+        // ─── Validate session ───
+        if (path === '/api/passwordless/session' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.session_token) return json({ error: 'session_token required' }, cors, 400);
+
+          const session = await env.DB.prepare("SELECT * FROM ck_sessions WHERE session_token=? AND expires_at > datetime('now')").bind(body.session_token).first();
+          if (!session) return json({ valid: false, error: 'Invalid or expired session' }, cors, 401);
+
+          return json({ valid: true, email: session.email, session_id: session.id, expires_at: session.expires_at }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Vault Audit Log (Detailed) ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/vault-audit' && request.method === 'GET') {
+          const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100'), 1), 500);
+          const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'), 0);
+          const action = url.searchParams.get('action');
+          const entity = url.searchParams.get('entity');
+          const since = url.searchParams.get('since');
+          const until = url.searchParams.get('until');
+          const search = url.searchParams.get('search');
+
+          let query = 'SELECT * FROM ck_audit WHERE 1=1';
+          const binds = [];
+          if (action) { query += ' AND action=?'; binds.push(action); }
+          if (entity) { query += ' AND entity_id=?'; binds.push(entity); }
+          if (since) { query += ' AND created_at >= ?'; binds.push(since); }
+          if (until) { query += ' AND created_at <= ?'; binds.push(until); }
+          if (search) { query += ' AND (detail LIKE ? OR action LIKE ? OR entity_id LIKE ?)'; binds.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+          query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+          binds.push(limit, offset);
+
+          const rows = await env.DB.prepare(query).bind(...binds).all();
+
+          // Get total count
+          let countQuery = 'SELECT COUNT(*) as c FROM ck_audit WHERE 1=1';
+          const countBinds = [];
+          if (action) { countQuery += ' AND action=?'; countBinds.push(action); }
+          if (entity) { countQuery += ' AND entity_id=?'; countBinds.push(entity); }
+          if (since) { countQuery += ' AND created_at >= ?'; countBinds.push(since); }
+          if (until) { countQuery += ' AND created_at <= ?'; countBinds.push(until); }
+          if (search) { countQuery += ' AND (detail LIKE ? OR action LIKE ? OR entity_id LIKE ?)'; countBinds.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+
+          const total = await env.DB.prepare(countQuery).bind(...countBinds).first();
+
+          // Get action type breakdown
+          const actionBreakdown = await env.DB.prepare("SELECT action, COUNT(*) as count FROM ck_audit GROUP BY action ORDER BY count DESC LIMIT 20").all();
+
+          // Get recent activity summary
+          const last24h = await env.DB.prepare("SELECT COUNT(*) as c FROM ck_audit WHERE created_at > datetime('now','-24 hours')").first();
+          const last7d = await env.DB.prepare("SELECT COUNT(*) as c FROM ck_audit WHERE created_at > datetime('now','-7 days')").first();
+
+          return json({
+            ok: true,
+            entries: rows.results || [],
+            pagination: { total: total?.c || 0, limit, offset, has_more: (offset + limit) < (total?.c || 0) },
+            activity: { last_24h: last24h?.c || 0, last_7d: last7d?.c || 0 },
+            action_breakdown: (actionBreakdown.results || []).map(a => ({ action: a.action, count: a.count })),
+            filters_applied: { action: action || null, entity: entity || null, since: since || null, until: until || null, search: search || null },
+          }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Secret Scanning ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/secret-scan' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.text && !body.code) return json({ error: 'text or code required' }, cors, 400);
+
+          const input = (body.text || body.code || '').slice(0, 50000);
+          const findings = [];
+
+          // Secret patterns to detect
+          const patterns = [
+            { name: 'AWS Access Key', pattern: /AKIA[0-9A-Z]{16}/g, severity: 'critical', type: 'aws_key' },
+            { name: 'AWS Secret Key', pattern: /[A-Za-z0-9/+=]{40}(?=\s|$|"|')/g, severity: 'critical', type: 'aws_secret', context: 'aws' },
+            { name: 'GitHub Token (classic)', pattern: /ghp_[A-Za-z0-9]{36}/g, severity: 'critical', type: 'github_pat' },
+            { name: 'GitHub Token (fine-grained)', pattern: /github_pat_[A-Za-z0-9_]{82}/g, severity: 'critical', type: 'github_pat_fg' },
+            { name: 'GitHub OAuth', pattern: /gho_[A-Za-z0-9]{36}/g, severity: 'high', type: 'github_oauth' },
+            { name: 'GitHub App Token', pattern: /ghu_[A-Za-z0-9]{36}/g, severity: 'high', type: 'github_app' },
+            { name: 'GitLab Token', pattern: /glpat-[A-Za-z0-9\-_]{20,}/g, severity: 'critical', type: 'gitlab_pat' },
+            { name: 'Slack Token', pattern: /xox[bpors]-[A-Za-z0-9-]{10,}/g, severity: 'high', type: 'slack_token' },
+            { name: 'Slack Webhook', pattern: /https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+\/[A-Za-z0-9]+/g, severity: 'high', type: 'slack_webhook' },
+            { name: 'Stripe Secret Key', pattern: /sk_live_[A-Za-z0-9]{24,}/g, severity: 'critical', type: 'stripe_sk' },
+            { name: 'Stripe Publishable Key', pattern: /pk_live_[A-Za-z0-9]{24,}/g, severity: 'medium', type: 'stripe_pk' },
+            { name: 'Stripe Restricted Key', pattern: /rk_live_[A-Za-z0-9]{24,}/g, severity: 'critical', type: 'stripe_rk' },
+            { name: 'Twilio API Key', pattern: /SK[a-f0-9]{32}/g, severity: 'high', type: 'twilio_key' },
+            { name: 'SendGrid API Key', pattern: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g, severity: 'high', type: 'sendgrid_key' },
+            { name: 'Mailgun API Key', pattern: /key-[A-Za-z0-9]{32}/g, severity: 'high', type: 'mailgun_key' },
+            { name: 'Google API Key', pattern: /AIza[A-Za-z0-9_-]{35}/g, severity: 'high', type: 'google_api' },
+            { name: 'Google OAuth Client ID', pattern: /[0-9]+-[a-z0-9_]{32}\.apps\.googleusercontent\.com/g, severity: 'medium', type: 'google_oauth' },
+            { name: 'Firebase Key', pattern: /AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}/g, severity: 'high', type: 'firebase_key' },
+            { name: 'Heroku API Key', pattern: /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g, severity: 'medium', type: 'uuid_possible_key' },
+            { name: 'Generic API Key', pattern: /(?:api[_-]?key|apikey|api[_-]?token|access[_-]?token|auth[_-]?token|secret[_-]?key)\s*[:=]\s*['""]?([A-Za-z0-9_\-/.]{16,})['""]?/gi, severity: 'high', type: 'generic_api_key' },
+            { name: 'Private Key Block', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g, severity: 'critical', type: 'private_key' },
+            { name: 'Password in Code', pattern: /(?:password|passwd|pwd)\s*[:=]\s*['""]([^'""]{8,})['""]|PASSWORD\s*=\s*['""]([^'""]{8,})['""]|pass\s*[:=]\s*['""]([^'""]{8,})['""]|secret\s*[:=]\s*['""]([^'""]{8,})['""]/gi, severity: 'high', type: 'password_in_code' },
+            { name: 'JWT Token', pattern: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, severity: 'high', type: 'jwt' },
+            { name: 'Bearer Token', pattern: /Bearer\s+[A-Za-z0-9_\-.]{20,}/g, severity: 'high', type: 'bearer_token' },
+            { name: 'Database URL', pattern: /(?:postgres|mysql|mongodb|redis):\/\/[^\s'"]{10,}/gi, severity: 'critical', type: 'database_url' },
+            { name: 'SSH Connection String', pattern: /ssh:\/\/[^\s'"]{10,}/gi, severity: 'medium', type: 'ssh_url' },
+            { name: 'NPM Token', pattern: /npm_[A-Za-z0-9]{36}/g, severity: 'high', type: 'npm_token' },
+            { name: 'PyPI Token', pattern: /pypi-[A-Za-z0-9_-]{50,}/g, severity: 'high', type: 'pypi_token' },
+            { name: 'Cloudflare API Token', pattern: /[A-Za-z0-9_-]{40}(?=\s|$|"|')/g, severity: 'medium', type: 'possible_cf_token', context: 'cloudflare' },
+          ];
+
+          for (const p of patterns) {
+            const matches = input.match(p.pattern);
+            if (matches) {
+              for (const match of matches) {
+                // Redact the middle of the secret for safety
+                const redacted = match.length > 12
+                  ? match.slice(0, 6) + '****' + match.slice(-4)
+                  : match.slice(0, 3) + '****';
+                const lineNum = input.slice(0, input.indexOf(match)).split('\n').length;
+                findings.push({
+                  type: p.type,
+                  name: p.name,
+                  severity: p.severity,
+                  redacted_value: redacted,
+                  line: lineNum,
+                  length: match.length,
+                });
+              }
+            }
+          }
+
+          // Deduplicate by type + redacted_value
+          const seen = new Set();
+          const uniqueFindings = findings.filter(f => {
+            const key = f.type + ':' + f.redacted_value;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
+          const critical = uniqueFindings.filter(f => f.severity === 'critical').length;
+          const high = uniqueFindings.filter(f => f.severity === 'high').length;
+          const medium = uniqueFindings.filter(f => f.severity === 'medium').length;
+
+          await logAudit(env.DB, 'secret_scan', 'scan', `Secret scan: ${uniqueFindings.length} findings (${critical} critical, ${high} high, ${medium} medium)`);
+          stampChain('secret_scan', 'scan', `${uniqueFindings.length} findings`);
+
+          return json({
+            ok: true,
+            findings: uniqueFindings,
+            summary: { total: uniqueFindings.length, critical, high, medium },
+            scanned_length: input.length,
+            risk_level: critical > 0 ? 'critical' : high > 0 ? 'high' : medium > 0 ? 'medium' : 'clean',
+            recommendation: uniqueFindings.length > 0
+              ? `Found ${uniqueFindings.length} potential secret(s) in the scanned text. Rotate any exposed credentials immediately.`
+              : 'No secrets detected in the scanned text.',
+            scanned_at: new Date().toISOString(),
+          }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Identity Verification (KYC-Lite) ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/identity' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.full_name) return json({ error: 'full_name required' }, cors, 400);
+
+          const id = crypto.randomUUID().slice(0, 8);
+          const fullName = body.full_name.slice(0, 200);
+          const email = (body.email || '').slice(0, 200);
+          const phone = (body.phone || '').slice(0, 30);
+          const dateOfBirth = body.date_of_birth || '';
+          const country = (body.country || '').slice(0, 50);
+
+          // Hash any document data for verification without storing raw documents
+          let documentHash = '';
+          let documentType = body.document_type || '';
+          if (body.document_data) {
+            const encoder = new TextEncoder();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(body.document_data));
+            documentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          }
+
+          // Calculate verification score
+          let verificationScore = 0;
+          const checks = [];
+          if (fullName) { verificationScore += 15; checks.push({ check: 'name_provided', passed: true }); }
+          if (email) { verificationScore += 15; checks.push({ check: 'email_provided', passed: true }); }
+          if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { verificationScore += 10; checks.push({ check: 'email_format_valid', passed: true }); }
+          else if (email) { checks.push({ check: 'email_format_valid', passed: false }); }
+          if (phone) { verificationScore += 10; checks.push({ check: 'phone_provided', passed: true }); }
+          if (dateOfBirth) {
+            const dobDate = new Date(dateOfBirth);
+            const age = (Date.now() - dobDate.getTime()) / (365.25 * 24 * 3600000);
+            if (age >= 13 && age <= 120) { verificationScore += 15; checks.push({ check: 'dob_valid', passed: true, age: Math.floor(age) }); }
+            else { checks.push({ check: 'dob_valid', passed: false }); }
+          }
+          if (country) { verificationScore += 10; checks.push({ check: 'country_provided', passed: true }); }
+          if (documentHash) { verificationScore += 25; checks.push({ check: 'document_hashed', passed: true, document_type: documentType }); }
+
+          const verificationLevel = verificationScore >= 80 ? 'verified' : verificationScore >= 50 ? 'partial' : verificationScore >= 20 ? 'basic' : 'unverified';
+
+          // Store identity record (no raw PII stored, only hashes)
+          const nameHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fullName.toLowerCase())))).map(b => b.toString(16).padStart(2, '0')).join('');
+
+          await env.DB.prepare("INSERT INTO ck_identities (id, name_hash, email_hash, document_hash, document_type, country, verification_score, verification_level, checks, created_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))")
+            .bind(id, nameHash, email ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email.toLowerCase())))).map(b => b.toString(16).padStart(2, '0')).join('') : '', documentHash, documentType.slice(0, 50), country, verificationScore, verificationLevel, JSON.stringify(checks)).run();
+
+          await logAudit(env.DB, 'identity_verification', id, `Identity verification: ${verificationLevel} (${verificationScore}/100) for "${fullName.slice(0, 20)}..."`);
+          stampChain('identity_verification', id, verificationLevel);
+
+          return json({
+            ok: true,
+            id,
+            verification_level: verificationLevel,
+            verification_score: verificationScore,
+            checks,
+            document_hash: documentHash || null,
+            message: `Identity verification: ${verificationLevel}. Score: ${verificationScore}/100.`,
+            created_at: new Date().toISOString(),
+          }, cors, 201);
+        }
+
+        // ─── Get identity record ───
+        const identityMatch = path.match(/^\/api\/identity\/([^/]+)$/);
+        if (identityMatch && request.method === 'GET') {
+          const identity = await env.DB.prepare('SELECT * FROM ck_identities WHERE id=?').bind(identityMatch[1]).first();
+          if (!identity) return json({ error: 'identity record not found' }, cors, 404);
+          return json({
+            ok: true,
+            id: identity.id,
+            verification_level: identity.verification_level,
+            verification_score: identity.verification_score,
+            document_type: identity.document_type || null,
+            country: identity.country || null,
+            checks: JSON.parse(identity.checks || '[]'),
+            created_at: identity.created_at,
+          }, cors);
+        }
+
+        // ─── List identities ───
+        if (path === '/api/identity' && request.method === 'GET') {
+          const rows = await env.DB.prepare('SELECT id, verification_level, verification_score, document_type, country, created_at FROM ck_identities ORDER BY created_at DESC').all();
+          return json({ identities: rows.results || [] }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Access Policies ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/policies' && request.method === 'GET') {
+          const rows = await env.DB.prepare('SELECT * FROM ck_access_policies ORDER BY priority ASC, created_at DESC').all();
+          return json({ policies: (rows.results || []).map(p => ({ ...p, rules: JSON.parse(p.rules || '{}'), applies_to: JSON.parse(p.applies_to || '[]') })) }, cors);
+        }
+
+        if (path === '/api/policies' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.name || !body.type) return json({ error: 'name and type required (types: time_based, ip_based, role_based, geo_based, combined)' }, cors, 400);
+
+          const id = crypto.randomUUID().slice(0, 8);
+          const policyType = body.type.slice(0, 30);
+          const priority = Math.min(Math.max(parseInt(body.priority) || 100, 1), 1000);
+          const action = body.action || 'deny';
+          const appliesTo = JSON.stringify(body.applies_to || ['all']);
+
+          let rules = {};
+          if (policyType === 'time_based') {
+            rules = {
+              allowed_hours_start: body.allowed_hours_start || '09:00',
+              allowed_hours_end: body.allowed_hours_end || '17:00',
+              allowed_days: body.allowed_days || ['mon', 'tue', 'wed', 'thu', 'fri'],
+              timezone: body.timezone || 'UTC',
+            };
+          } else if (policyType === 'ip_based') {
+            rules = {
+              allowed_ips: body.allowed_ips || [],
+              blocked_ips: body.blocked_ips || [],
+              allow_private: body.allow_private !== false,
+            };
+          } else if (policyType === 'role_based') {
+            rules = {
+              required_roles: body.required_roles || [],
+              minimum_trust_score: body.minimum_trust_score || 0,
+            };
+          } else if (policyType === 'geo_based') {
+            rules = {
+              allowed_countries: body.allowed_countries || [],
+              blocked_countries: body.blocked_countries || [],
+            };
+          } else {
+            rules = body.rules || {};
+          }
+
+          await env.DB.prepare("INSERT INTO ck_access_policies (id, name, type, rules, action, priority, applies_to, enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,1,datetime('now'),datetime('now'))")
+            .bind(id, body.name.slice(0, 100), policyType, JSON.stringify(rules), action.slice(0, 20), priority, appliesTo).run();
+
+          await logAudit(env.DB, 'policy_created', id, `Access policy "${body.name}" (${policyType}) created with action "${action}"`);
+          stampChain('policy_created', id, body.name);
+          return json({ ok: true, id, name: body.name, type: policyType, rules, action, priority, applies_to: body.applies_to || ['all'] }, cors, 201);
+        }
+
+        // ─── Enforce (evaluate) a policy ───
+        if (path === '/api/policies/enforce' && request.method === 'POST') {
+          const body = await request.json();
+          const clientIp = body.ip || request.headers.get('cf-connecting-ip') || 'unknown';
+          const clientCountry = body.country || request.headers.get('cf-ipcountry') || 'unknown';
+          const role = body.role || 'user';
+          const trustScore = parseInt(body.trust_score) || 50;
+          const now = new Date();
+          const currentHour = now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0');
+          const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+          const currentDay = days[now.getUTCDay()];
+
+          const policies = await env.DB.prepare("SELECT * FROM ck_access_policies WHERE enabled=1 ORDER BY priority ASC").all();
+          const results = [];
+          let finalDecision = 'allow';
+
+          for (const policy of (policies.results || [])) {
+            const rules = JSON.parse(policy.rules || '{}');
+            let policyResult = 'pass';
+
+            if (policy.type === 'time_based') {
+              const inHours = currentHour >= (rules.allowed_hours_start || '00:00') && currentHour <= (rules.allowed_hours_end || '23:59');
+              const inDays = !rules.allowed_days || rules.allowed_days.includes(currentDay);
+              if (!inHours || !inDays) policyResult = 'fail';
+            } else if (policy.type === 'ip_based') {
+              if (rules.blocked_ips && rules.blocked_ips.includes(clientIp)) policyResult = 'fail';
+              if (rules.allowed_ips && rules.allowed_ips.length > 0 && !rules.allowed_ips.includes(clientIp)) policyResult = 'fail';
+            } else if (policy.type === 'role_based') {
+              if (rules.required_roles && rules.required_roles.length > 0 && !rules.required_roles.includes(role)) policyResult = 'fail';
+              if (rules.minimum_trust_score && trustScore < rules.minimum_trust_score) policyResult = 'fail';
+            } else if (policy.type === 'geo_based') {
+              if (rules.blocked_countries && rules.blocked_countries.includes(clientCountry)) policyResult = 'fail';
+              if (rules.allowed_countries && rules.allowed_countries.length > 0 && !rules.allowed_countries.includes(clientCountry)) policyResult = 'fail';
+            }
+
+            results.push({ policy_id: policy.id, name: policy.name, type: policy.type, result: policyResult, action: policy.action });
+            if (policyResult === 'fail' && policy.action === 'deny') finalDecision = 'deny';
+          }
+
+          await logAudit(env.DB, 'policy_enforced', 'enforcement', `Policy enforcement: ${finalDecision} (IP: ${clientIp}, country: ${clientCountry}, role: ${role})`);
+          return json({
+            ok: true,
+            decision: finalDecision,
+            evaluated: results.length,
+            results,
+            context: { ip: clientIp, country: clientCountry, role, trust_score: trustScore, time: currentHour, day: currentDay },
+            evaluated_at: new Date().toISOString(),
+          }, cors);
+        }
+
+        // ─── Update policy ───
+        const policyMatch = path.match(/^\/api\/policies\/([^/]+)$/);
+        if (policyMatch && request.method === 'PUT') {
+          const body = await request.json();
+          const policy = await env.DB.prepare('SELECT * FROM ck_access_policies WHERE id=?').bind(policyMatch[1]).first();
+          if (!policy) return json({ error: 'policy not found' }, cors, 404);
+
+          const updates = [];
+          const binds = [];
+          if (body.name) { updates.push('name=?'); binds.push(body.name.slice(0, 100)); }
+          if (body.rules) { updates.push('rules=?'); binds.push(JSON.stringify(body.rules)); }
+          if (body.action) { updates.push('action=?'); binds.push(body.action.slice(0, 20)); }
+          if (body.priority !== undefined) { updates.push('priority=?'); binds.push(parseInt(body.priority)); }
+          if (body.enabled !== undefined) { updates.push('enabled=?'); binds.push(body.enabled ? 1 : 0); }
+          if (updates.length === 0) return json({ error: 'Nothing to update' }, cors, 400);
+          updates.push("updated_at=datetime('now')");
+
+          binds.push(policy.id);
+          await env.DB.prepare(`UPDATE ck_access_policies SET ${updates.join(',')} WHERE id=?`).bind(...binds).run();
+          await logAudit(env.DB, 'policy_updated', policy.id, `Policy "${policy.name}" updated`);
+          return json({ ok: true, id: policy.id, updated: true }, cors);
+        }
+
+        // ─── Delete policy ───
+        if (policyMatch && request.method === 'DELETE') {
+          const policy = await env.DB.prepare('SELECT id, name FROM ck_access_policies WHERE id=?').bind(policyMatch[1]).first();
+          if (!policy) return json({ error: 'policy not found' }, cors, 404);
+          await env.DB.prepare('DELETE FROM ck_access_policies WHERE id=?').bind(policy.id).run();
+          await logAudit(env.DB, 'policy_deleted', policy.id, `Policy "${policy.name}" deleted`);
+          return json({ ok: true, deleted: policy.id, name: policy.name }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Vault Teams ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/teams' && request.method === 'GET') {
+          const rows = await env.DB.prepare('SELECT * FROM ck_teams ORDER BY created_at DESC').all();
+          const teams = [];
+          for (const team of (rows.results || [])) {
+            const memberCount = await env.DB.prepare('SELECT COUNT(*) as c FROM ck_team_members WHERE team_id=?').bind(team.id).first();
+            const credCount = await env.DB.prepare('SELECT COUNT(*) as c FROM ck_team_credentials WHERE team_id=?').bind(team.id).first();
+            teams.push({ ...team, member_count: memberCount?.c || 0, credential_count: credCount?.c || 0 });
+          }
+          return json({ teams }, cors);
+        }
+
+        if (path === '/api/teams' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.name) return json({ error: 'name required' }, cors, 400);
+
+          const id = crypto.randomUUID().slice(0, 8);
+          const description = (body.description || '').slice(0, 300);
+
+          await env.DB.prepare("INSERT INTO ck_teams (id, name, description, created_by, created_at) VALUES (?,?,?,?,datetime('now'))")
+            .bind(id, body.name.slice(0, 100), description, (body.created_by || 'owner').slice(0, 100)).run();
+
+          // Auto-add creator as admin
+          const memberId = crypto.randomUUID().slice(0, 8);
+          await env.DB.prepare("INSERT INTO ck_team_members (id, team_id, user_id, role, joined_at) VALUES (?,?,?,?,datetime('now'))")
+            .bind(memberId, id, (body.created_by || 'owner').slice(0, 100), 'admin').run();
+
+          await logAudit(env.DB, 'team_created', id, `Team "${body.name}" created`);
+          stampChain('team_created', id, body.name);
+          return json({ ok: true, id, name: body.name, description, role: 'admin', message: `Team "${body.name}" created. You are the admin.` }, cors, 201);
+        }
+
+        // ─── Team detail ───
+        const teamMatch = path.match(/^\/api\/teams\/([^/]+)$/);
+        if (teamMatch && request.method === 'GET') {
+          const team = await env.DB.prepare('SELECT * FROM ck_teams WHERE id=?').bind(teamMatch[1]).first();
+          if (!team) return json({ error: 'team not found' }, cors, 404);
+          const members = await env.DB.prepare('SELECT * FROM ck_team_members WHERE team_id=? ORDER BY joined_at ASC').bind(team.id).all();
+          const credentials = await env.DB.prepare('SELECT id, name, type, shared_by, shared_at FROM ck_team_credentials WHERE team_id=? ORDER BY shared_at DESC').bind(team.id).all();
+          return json({ ok: true, team, members: members.results || [], credentials: credentials.results || [] }, cors);
+        }
+
+        // ─── Add team member ───
+        if (path === '/api/teams/members' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.team_id || !body.user_id) return json({ error: 'team_id and user_id required' }, cors, 400);
+
+          const team = await env.DB.prepare('SELECT * FROM ck_teams WHERE id=?').bind(body.team_id).first();
+          if (!team) return json({ error: 'team not found' }, cors, 404);
+
+          const existing = await env.DB.prepare('SELECT * FROM ck_team_members WHERE team_id=? AND user_id=?').bind(body.team_id, body.user_id).first();
+          if (existing) return json({ error: 'User is already a team member' }, cors, 409);
+
+          const memberId = crypto.randomUUID().slice(0, 8);
+          const role = body.role === 'admin' ? 'admin' : 'member';
+
+          await env.DB.prepare("INSERT INTO ck_team_members (id, team_id, user_id, role, joined_at) VALUES (?,?,?,?,datetime('now'))")
+            .bind(memberId, body.team_id, body.user_id.slice(0, 100), role).run();
+
+          await logAudit(env.DB, 'team_member_added', memberId, `${body.user_id} added to team "${team.name}" as ${role}`);
+          return json({ ok: true, member_id: memberId, team_id: body.team_id, user_id: body.user_id, role }, cors, 201);
+        }
+
+        // ─── Remove team member ───
+        if (path === '/api/teams/members' && request.method === 'DELETE') {
+          const body = await request.json();
+          if (!body.team_id || !body.user_id) return json({ error: 'team_id and user_id required' }, cors, 400);
+
+          const member = await env.DB.prepare('SELECT * FROM ck_team_members WHERE team_id=? AND user_id=?').bind(body.team_id, body.user_id).first();
+          if (!member) return json({ error: 'Member not found in team' }, cors, 404);
+
+          await env.DB.prepare('DELETE FROM ck_team_members WHERE id=?').bind(member.id).run();
+          await logAudit(env.DB, 'team_member_removed', member.id, `${body.user_id} removed from team ${body.team_id}`);
+          return json({ ok: true, removed: body.user_id, team_id: body.team_id }, cors);
+        }
+
+        // ─── Share credential with team ───
+        if (path === '/api/teams/share' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.team_id || !body.credential_name) return json({ error: 'team_id and credential_name required' }, cors, 400);
+
+          const team = await env.DB.prepare('SELECT * FROM ck_teams WHERE id=?').bind(body.team_id).first();
+          if (!team) return json({ error: 'team not found' }, cors, 404);
+
+          const credId = crypto.randomUUID().slice(0, 8);
+          const credType = body.type || 'shared';
+          const sharedBy = (body.shared_by || 'owner').slice(0, 100);
+
+          // If encrypted content is provided, store it
+          let encryptedValue = '';
+          if (body.value && body.passphrase) {
+            encryptedValue = await encryptData(body.value, body.passphrase);
+          }
+
+          await env.DB.prepare("INSERT INTO ck_team_credentials (id, team_id, name, type, encrypted_value, shared_by, shared_at) VALUES (?,?,?,?,?,?,datetime('now'))")
+            .bind(credId, body.team_id, body.credential_name.slice(0, 100), credType.slice(0, 50), encryptedValue, sharedBy).run();
+
+          await logAudit(env.DB, 'team_credential_shared', credId, `Credential "${body.credential_name}" shared with team "${team.name}" by ${sharedBy}`);
+          return json({ ok: true, credential_id: credId, team_id: body.team_id, name: body.credential_name, shared_by: sharedBy, encrypted: !!encryptedValue }, cors, 201);
+        }
+
+        // ─── Delete team ───
+        if (teamMatch && request.method === 'DELETE') {
+          const team = await env.DB.prepare('SELECT * FROM ck_teams WHERE id=?').bind(teamMatch[1]).first();
+          if (!team) return json({ error: 'team not found' }, cors, 404);
+          await env.DB.prepare('DELETE FROM ck_team_members WHERE team_id=?').bind(team.id).run();
+          await env.DB.prepare('DELETE FROM ck_team_credentials WHERE team_id=?').bind(team.id).run();
+          await env.DB.prepare('DELETE FROM ck_teams WHERE id=?').bind(team.id).run();
+          await logAudit(env.DB, 'team_deleted', team.id, `Team "${team.name}" deleted with all members and credentials`);
+          return json({ ok: true, deleted: team.id, name: team.name }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Recovery Codes ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/recovery' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const userId = (body.user_id || 'default').slice(0, 100);
+          const codeCount = Math.min(Math.max(parseInt(body.count) || 8, 4), 16);
+          const codeLength = Math.min(Math.max(parseInt(body.code_length) || 8, 6), 16);
+
+          // Invalidate any existing unused recovery codes for this user
+          await env.DB.prepare("UPDATE ck_recovery_codes SET status='invalidated' WHERE user_id=? AND status='active'").bind(userId).run();
+
+          const codes = [];
+          const setId = crypto.randomUUID().slice(0, 8);
+
+          for (let i = 0; i < codeCount; i++) {
+            const codeBytes = crypto.getRandomValues(new Uint8Array(codeLength));
+            // Format as readable chunks: XXXX-XXXX
+            const rawCode = Array.from(codeBytes).map(b => b.toString(36).slice(-1)).join('').toUpperCase().slice(0, codeLength);
+            const formattedCode = rawCode.match(/.{1,4}/g).join('-');
+
+            // Store hash of code, not the code itself
+            const codeHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(formattedCode)))).map(b => b.toString(16).padStart(2, '0')).join('');
+            const codeId = crypto.randomUUID().slice(0, 8);
+
+            await env.DB.prepare("INSERT INTO ck_recovery_codes (id, set_id, user_id, code_hash, code_index, status, created_at) VALUES (?,?,?,?,?,?,datetime('now'))")
+              .bind(codeId, setId, userId, codeHash, i + 1, 'active').run();
+
+            codes.push({ index: i + 1, code: formattedCode });
+          }
+
+          await logAudit(env.DB, 'recovery_codes_generated', setId, `${codeCount} recovery codes generated for ${userId}`);
+          stampChain('recovery_codes', setId, userId);
+
+          return json({
+            ok: true,
+            set_id: setId,
+            user_id: userId,
+            codes,
+            total: codeCount,
+            message: 'Save these recovery codes in a secure location. Each code can only be used once. They will NOT be shown again.',
+            warning: 'Any previously generated recovery codes have been invalidated.',
+            generated_at: new Date().toISOString(),
+          }, cors, 201);
+        }
+
+        // ─── Validate a recovery code ───
+        if (path === '/api/recovery/validate' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.code) return json({ error: 'code required' }, cors, 400);
+          const userId = (body.user_id || 'default').slice(0, 100);
+
+          // Hash the provided code
+          const codeHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.code.trim())))).map(b => b.toString(16).padStart(2, '0')).join('');
+
+          const codeRecord = await env.DB.prepare("SELECT * FROM ck_recovery_codes WHERE user_id=? AND code_hash=? AND status='active'").bind(userId, codeHash).first();
+
+          if (!codeRecord) {
+            await logAudit(env.DB, 'recovery_code_failed', userId, 'Recovery code validation failed');
+            return json({ valid: false, error: 'Invalid or already used recovery code' }, cors, 401);
+          }
+
+          // Mark as used
+          await env.DB.prepare("UPDATE ck_recovery_codes SET status='used', used_at=datetime('now') WHERE id=?").bind(codeRecord.id).run();
+
+          // Check remaining codes
+          const remaining = await env.DB.prepare("SELECT COUNT(*) as c FROM ck_recovery_codes WHERE set_id=? AND status='active'").bind(codeRecord.set_id).first();
+
+          await logAudit(env.DB, 'recovery_code_used', codeRecord.id, `Recovery code #${codeRecord.code_index} used for ${userId}`);
+
+          return json({
+            valid: true,
+            code_index: codeRecord.code_index,
+            remaining_codes: remaining?.c || 0,
+            user_id: userId,
+            message: `Recovery code #${codeRecord.code_index} accepted. ${remaining?.c || 0} codes remaining.`,
+            warning: (remaining?.c || 0) <= 2 ? 'You are running low on recovery codes. Generate new ones soon.' : null,
+          }, cors);
+        }
+
+        // ─── Get recovery code status ───
+        if (path === '/api/recovery' && request.method === 'GET') {
+          const userId = url.searchParams.get('user_id') || 'default';
+          const allCodes = await env.DB.prepare('SELECT id, set_id, code_index, status, created_at, used_at FROM ck_recovery_codes WHERE user_id=? ORDER BY created_at DESC, code_index ASC').bind(userId).all();
+          const active = (allCodes.results || []).filter(c => c.status === 'active');
+          const used = (allCodes.results || []).filter(c => c.status === 'used');
+          return json({
+            ok: true,
+            user_id: userId,
+            total: (allCodes.results || []).length,
+            active: active.length,
+            used: used.length,
+            codes: (allCodes.results || []).map(c => ({ index: c.code_index, status: c.status, used_at: c.used_at || null })),
+            needs_regeneration: active.length <= 2,
+          }, cors);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NEW FEATURE: Credential Strength Score ───
+        // ═══════════════════════════════════════════════════════════════
+        if (path === '/api/strength' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.credential) return json({ error: 'credential required' }, cors, 400);
+
+          const cred = body.credential;
+          const credType = body.type || 'password';
+
+          // Basic metrics
+          const length = cred.length;
+          const entropy = calcEntropy(cred);
+          const strength = passwordStrength(cred);
+
+          // Character analysis
+          const hasLower = /[a-z]/.test(cred);
+          const hasUpper = /[A-Z]/.test(cred);
+          const hasDigit = /[0-9]/.test(cred);
+          const hasSymbol = /[^a-zA-Z0-9]/.test(cred);
+          const charTypes = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+          const uniqueChars = new Set(cred).size;
+          const uniqueRatio = uniqueChars / length;
+
+          // Pattern detection
+          const patterns = [];
+          let patternPenalty = 0;
+
+          // Sequential characters (abc, 123, etc.)
+          let sequential = 0;
+          for (let i = 0; i < cred.length - 2; i++) {
+            if (cred.charCodeAt(i + 1) === cred.charCodeAt(i) + 1 && cred.charCodeAt(i + 2) === cred.charCodeAt(i) + 2) sequential++;
+          }
+          if (sequential > 0) { patterns.push({ type: 'sequential', count: sequential, penalty: sequential * 5 }); patternPenalty += sequential * 5; }
+
+          // Repeated characters (aaa, 111)
+          let repeated = 0;
+          for (let i = 0; i < cred.length - 2; i++) {
+            if (cred[i] === cred[i + 1] && cred[i] === cred[i + 2]) repeated++;
+          }
+          if (repeated > 0) { patterns.push({ type: 'repeated', count: repeated, penalty: repeated * 5 }); patternPenalty += repeated * 5; }
+
+          // Common substitutions (@ for a, 3 for e, etc.)
+          const leetSpeak = /(?:@|4).*(?:3|€).*(?:1|!).*(?:0|Ø)/i.test(cred) || /p@ss|p4ss|h4ck|l33t|r00t/i.test(cred);
+          if (leetSpeak) { patterns.push({ type: 'leet_speak', penalty: 10 }); patternPenalty += 10; }
+
+          // Keyboard patterns (qwerty, asdf, etc.)
+          const kbPatterns = ['qwert', 'asdf', 'zxcv', 'qazwsx', '12345', '09876', 'poiuy', 'lkjhg'];
+          for (const kp of kbPatterns) {
+            if (cred.toLowerCase().includes(kp)) { patterns.push({ type: 'keyboard_pattern', value: kp, penalty: 15 }); patternPenalty += 15; break; }
+          }
+
+          // Common words
+          const commonWords = ['password', 'admin', 'login', 'welcome', 'master', 'dragon', 'monkey', 'shadow', 'sunshine', 'princess', 'football', 'baseball', 'letmein', 'trustno1', 'iloveyou', 'qwerty', 'abc123', 'access', 'hello', 'charlie'];
+          for (const cw of commonWords) {
+            if (cred.toLowerCase().includes(cw)) { patterns.push({ type: 'common_word', value: cw, penalty: 20 }); patternPenalty += 20; break; }
+          }
+
+          // Date patterns (YYYY, MMDD)
+          if (/(?:19|20)\d{2}/.test(cred)) { patterns.push({ type: 'year_pattern', penalty: 5 }); patternPenalty += 5; }
+
+          // Calculate composite score
+          let score = 0;
+          // Length contribution (up to 30 points)
+          score += Math.min(30, length * 2);
+          // Entropy contribution (up to 30 points)
+          score += Math.min(30, Math.floor(entropy / 3));
+          // Character diversity (up to 20 points)
+          score += charTypes * 5;
+          // Unique ratio (up to 10 points)
+          score += Math.floor(uniqueRatio * 10);
+          // Credential type bonus (API keys / tokens tend to be random)
+          if (credType === 'api_key' || credType === 'token') score += 10;
+
+          // Apply penalties
+          score = Math.max(0, Math.min(100, score - patternPenalty));
+
+          const grade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
+
+          // Recommendations
+          const recommendations = [];
+          if (length < 12) recommendations.push('Increase length to at least 12 characters');
+          if (length < 16) recommendations.push('Consider using 16+ characters for critical accounts');
+          if (!hasUpper) recommendations.push('Add uppercase letters');
+          if (!hasLower) recommendations.push('Add lowercase letters');
+          if (!hasDigit) recommendations.push('Add numbers');
+          if (!hasSymbol) recommendations.push('Add special characters');
+          if (charTypes < 3) recommendations.push('Use at least 3 different character types');
+          if (uniqueRatio < 0.6) recommendations.push('Use more unique characters to avoid repetition');
+          if (patterns.length > 0) recommendations.push('Avoid predictable patterns like keyboard walks, common words, or sequences');
+          if (entropy < 60) recommendations.push('Consider using a randomly generated password for higher entropy');
+
+          await logAudit(env.DB, 'strength_check', 'strength', `Credential strength check: ${grade} (${score}/100)`);
+
+          return json({
+            ok: true,
+            score,
+            grade,
+            strength,
+            metrics: {
+              length,
+              entropy,
+              char_types: charTypes,
+              unique_chars: uniqueChars,
+              unique_ratio: Math.round(uniqueRatio * 100) / 100,
+              has_lowercase: hasLower,
+              has_uppercase: hasUpper,
+              has_digits: hasDigit,
+              has_symbols: hasSymbol,
+            },
+            patterns_detected: patterns,
+            pattern_penalty: patternPenalty,
+            recommendations,
+            credential_type: credType,
+            analyzed_at: new Date().toISOString(),
+          }, cors);
+        }
+
+
         return json({error:'not found'},cors,404);
       } catch(err) {
         return json({error:err.message},cors,500);
@@ -2202,6 +2983,71 @@ async function ensureCKTables(db) {
     db.prepare(`CREATE TABLE IF NOT EXISTS ck_vault_snapshots (
       id TEXT PRIMARY KEY, name TEXT NOT NULL,
       snapshot_data TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_magic_links (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      used_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_sessions (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL,
+      session_token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_identities (
+      id TEXT PRIMARY KEY, name_hash TEXT NOT NULL,
+      email_hash TEXT DEFAULT '',
+      document_hash TEXT DEFAULT '',
+      document_type TEXT DEFAULT '',
+      country TEXT DEFAULT '',
+      verification_score INTEGER DEFAULT 0,
+      verification_level TEXT DEFAULT 'unverified',
+      checks TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_access_policies (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      rules TEXT DEFAULT '{}',
+      action TEXT DEFAULT 'deny',
+      priority INTEGER DEFAULT 100,
+      applies_to TEXT DEFAULT '["all"]',
+      enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_teams (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      created_by TEXT DEFAULT 'owner',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_team_members (
+      id TEXT PRIMARY KEY, team_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      role TEXT DEFAULT 'member',
+      joined_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_team_credentials (
+      id TEXT PRIMARY KEY, team_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT DEFAULT 'shared',
+      encrypted_value TEXT DEFAULT '',
+      shared_by TEXT DEFAULT 'owner',
+      shared_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ck_recovery_codes (
+      id TEXT PRIMARY KEY, set_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      code_index INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'active',
+      used_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     )`),
   ]);
@@ -2571,6 +3417,7 @@ h2{font-size:18px;font-weight:600;margin:32px 0 16px}
     <div class="tab" onclick="switchTab('notes')">Notes</div>
     <div class="tab" onclick="switchTab('tools')">Tools</div>
     <div class="tab" onclick="switchTab('advanced')">Advanced</div>
+    <div class="tab" onclick="switchTab('security')">Security+</div>
   </div>
 
   <!-- ─── BLAST TAB ─── -->
@@ -2786,6 +3633,107 @@ h2{font-size:18px;font-weight:600;margin:32px 0 16px}
       <p>Password policy adherence, rotation compliance, 2FA adoption, and more.</p>
       <button class="tool-btn" onclick="runCompliance()">Generate Compliance Report</button>
       <div id="compResult" class="result-box"></div>
+    </div>
+  </div>
+
+  <!-- ─── SECURITY+ TAB ─── -->
+  <div class="tab-content" id="tab-security">
+    <div class="tool-card">
+      <h3>Passwordless Login</h3>
+      <p>Generate magic login links for email-based passwordless authentication.</p>
+      <input class="tool-input" id="magicEmail" placeholder="Email address">
+      <button class="tool-btn" onclick="createMagicLink()">Generate Magic Link</button>
+      <button class="tool-btn secondary" onclick="listMagicLinks()" style="margin-top:8px">View Magic Links</button>
+      <div id="magicResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Vault Audit Log</h3>
+      <p>Detailed audit log with filtering by action, entity, date range, and text search.</p>
+      <div class="row">
+        <input class="tool-input" id="auditAction" placeholder="Filter by action (optional)">
+        <input class="tool-input" id="auditSearch" placeholder="Search text (optional)">
+      </div>
+      <button class="tool-btn" onclick="loadVaultAudit()">Load Audit Log</button>
+      <div id="vaultAuditResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Secret Scanner</h3>
+      <p>Scan text or code for exposed secrets: API keys, passwords, tokens, private keys, database URLs.</p>
+      <textarea class="tool-input" id="scanText" style="height:100px;resize:vertical;font-family:var(--jb)" placeholder="Paste code or text to scan for secrets..."></textarea>
+      <button class="tool-btn" onclick="scanSecrets()">Scan for Secrets</button>
+      <div id="scanResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Identity Verification</h3>
+      <p>KYC-lite identity verification. Document data is hashed, never stored raw.</p>
+      <div class="row">
+        <input class="tool-input" id="idName" placeholder="Full name">
+        <input class="tool-input" id="idEmail" placeholder="Email">
+      </div>
+      <div class="row">
+        <input class="tool-input" id="idCountry" placeholder="Country">
+        <input class="tool-input" id="idDocType" placeholder="Doc type (passport, license)">
+      </div>
+      <button class="tool-btn" onclick="verifyIdentity()">Verify Identity</button>
+      <div id="idResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Access Policies</h3>
+      <p>Define access policies: time-based, IP-based, role-based, geo-based. Enforce them in real time.</p>
+      <div class="row">
+        <input class="tool-input" id="policyName" placeholder="Policy name">
+        <select class="tool-input" id="policyType" style="background:var(--bg)">
+          <option value="time_based">Time-based</option>
+          <option value="ip_based">IP-based</option>
+          <option value="role_based">Role-based</option>
+          <option value="geo_based">Geo-based</option>
+        </select>
+      </div>
+      <button class="tool-btn" onclick="createPolicy()">Create Policy</button>
+      <button class="tool-btn secondary" onclick="listPolicies()" style="margin-top:8px">List Policies</button>
+      <button class="tool-btn secondary" onclick="enforcePolicy()" style="margin-top:8px">Enforce (Test Current Context)</button>
+      <div id="policyResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Vault Teams</h3>
+      <p>Create teams, add members (admin/member roles), and share credentials securely.</p>
+      <input class="tool-input" id="teamName" placeholder="Team name">
+      <input class="tool-input" id="teamDesc" placeholder="Description (optional)">
+      <button class="tool-btn" onclick="createTeam()">Create Team</button>
+      <button class="tool-btn secondary" onclick="listTeams()" style="margin-top:8px">List Teams</button>
+      <div id="teamResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Recovery Codes</h3>
+      <p>Generate one-time-use backup recovery codes for account recovery. Codes are hashed and stored securely.</p>
+      <input class="tool-input" id="recoveryUser" placeholder="User ID (default: default)" value="default">
+      <button class="tool-btn" onclick="generateRecovery()">Generate Recovery Codes</button>
+      <button class="tool-btn secondary" onclick="recoveryStatus()" style="margin-top:8px">Check Status</button>
+      <div class="row" style="margin-top:12px">
+        <input class="tool-input" id="recoveryCode" placeholder="Enter recovery code to validate">
+        <button class="tool-btn secondary" onclick="validateRecovery()">Validate</button>
+      </div>
+      <div id="recoveryResult" class="result-box"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>Credential Strength Analyzer</h3>
+      <p>Deep analysis of any credential: entropy, patterns, keyboard walks, common words, and actionable recommendations.</p>
+      <input class="tool-input" id="strengthCred" type="password" placeholder="Enter credential to analyze">
+      <select class="tool-input" id="strengthType" style="background:var(--bg)">
+        <option value="password">Password</option>
+        <option value="api_key">API Key</option>
+        <option value="token">Token</option>
+        <option value="passphrase">Passphrase</option>
+      </select>
+      <button class="tool-btn" onclick="checkStrength()">Analyze Strength</button>
+      <div id="strengthResult" class="result-box"></div>
     </div>
   </div>
 
@@ -3257,6 +4205,234 @@ async function runCompliance(){
   }
   if(d.ai_assessment){out+='VALERIA SAYS:\\n'+d.ai_assessment+'\\n'}
   show('compResult',out);
+}
+
+// ─── Passwordless Login ───
+async function createMagicLink(){
+  const email=document.getElementById('magicEmail').value;
+  if(!email){alert('Email required');return}
+  show('magicResult','Generating magic link...');
+  const d=await api('/api/passwordless',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
+  if(d.ok){
+    let out='MAGIC LINK GENERATED\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Email: '+d.email+'\\n';
+    out+='Link: '+d.magic_link+'\\n';
+    out+='Expires: '+d.expires_at+'\\n';
+    out+='TTL: '+d.ttl_minutes+' minutes\\n\\n';
+    out+=d.message;
+    show('magicResult',out);
+  }else{show('magicResult',JSON.stringify(d))}
+}
+
+async function listMagicLinks(){
+  const d=await api('/api/passwordless');
+  if(!d.magic_links||!d.magic_links.length){show('magicResult','No magic links.');return}
+  let out='MAGIC LINKS ('+d.active_count+' active)\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+  d.magic_links.forEach(function(l){out+=l.id+' | '+l.email+' | '+(l.used?'USED':'ACTIVE')+' | expires: '+l.expires_at+'\\n'});
+  show('magicResult',out);
+}
+
+// ─── Vault Audit Log ───
+async function loadVaultAudit(){
+  const action=document.getElementById('auditAction').value;
+  const search=document.getElementById('auditSearch').value;
+  let qs='?limit=50';
+  if(action)qs+='&action='+encodeURIComponent(action);
+  if(search)qs+='&search='+encodeURIComponent(search);
+  show('vaultAuditResult','Loading audit log...');
+  const d=await api('/api/vault-audit'+qs);
+  if(d.ok){
+    let out='VAULT AUDIT LOG\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Last 24h: '+d.activity.last_24h+' | Last 7d: '+d.activity.last_7d+' | Total: '+d.pagination.total+'\\n\\n';
+    if(d.action_breakdown&&d.action_breakdown.length){
+      out+='ACTION BREAKDOWN:\\n';
+      d.action_breakdown.slice(0,10).forEach(function(a){out+='  '+a.action+': '+a.count+'\\n'});
+      out+='\\n';
+    }
+    out+='ENTRIES:\\n';
+    (d.entries||[]).forEach(function(e){out+=e.created_at+' | '+e.action+' | '+e.entity_id+' | '+(e.detail||'').slice(0,80)+'\\n'});
+    show('vaultAuditResult',out);
+  }else{show('vaultAuditResult',JSON.stringify(d))}
+}
+
+// ─── Secret Scanner ───
+async function scanSecrets(){
+  const text=document.getElementById('scanText').value;
+  if(!text){alert('Paste text or code to scan');return}
+  show('scanResult','Scanning for secrets...');
+  const d=await api('/api/secret-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});
+  if(d.ok){
+    let out='SECRET SCAN: '+d.risk_level.toUpperCase()+'\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Scanned: '+d.scanned_length+' chars\\n';
+    out+='Findings: '+d.summary.total+' ('+d.summary.critical+' critical, '+d.summary.high+' high, '+d.summary.medium+' medium)\\n\\n';
+    if(d.findings&&d.findings.length){
+      out+='DETECTED SECRETS:\\n';
+      d.findings.forEach(function(f){out+='  ['+f.severity.toUpperCase()+'] '+f.name+' (line '+f.line+'): '+f.redacted_value+'\\n'});
+      out+='\\n';
+    }
+    out+=d.recommendation;
+    show('scanResult',out);
+  }else{show('scanResult',JSON.stringify(d))}
+}
+
+// ─── Identity Verification ───
+async function verifyIdentity(){
+  const name=document.getElementById('idName').value;
+  if(!name){alert('Full name required');return}
+  show('idResult','Verifying...');
+  const body={full_name:name,email:document.getElementById('idEmail').value,country:document.getElementById('idCountry').value,document_type:document.getElementById('idDocType').value};
+  const d=await api('/api/identity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(d.ok){
+    let out='IDENTITY VERIFICATION: '+d.verification_level.toUpperCase()+'\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Score: '+d.verification_score+'/100\\n';
+    out+='ID: '+d.id+'\\n\\n';
+    out+='CHECKS:\\n';
+    d.checks.forEach(function(c){out+='  '+(c.passed?'PASS':'FAIL')+' '+c.check+(c.age?' (age: '+c.age+')':'')+'\\n'});
+    show('idResult',out);
+  }else{show('idResult',JSON.stringify(d))}
+}
+
+// ─── Access Policies ───
+async function createPolicy(){
+  const name=document.getElementById('policyName').value;
+  const type=document.getElementById('policyType').value;
+  if(!name){alert('Policy name required');return}
+  show('policyResult','Creating policy...');
+  const body={name:name,type:type};
+  if(type==='time_based'){body.allowed_hours_start='09:00';body.allowed_hours_end='17:00';body.allowed_days=['mon','tue','wed','thu','fri']}
+  const d=await api('/api/policies',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(d.ok){
+    let out='POLICY CREATED\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='ID: '+d.id+'\\n';
+    out+='Name: '+d.name+'\\n';
+    out+='Type: '+d.type+'\\n';
+    out+='Action: '+d.action+'\\n';
+    out+='Rules: '+JSON.stringify(d.rules,null,2)+'\\n';
+    show('policyResult',out);
+  }else{show('policyResult',JSON.stringify(d))}
+}
+
+async function listPolicies(){
+  const d=await api('/api/policies');
+  if(!d.policies||!d.policies.length){show('policyResult','No access policies.');return}
+  let out='ACCESS POLICIES\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+  d.policies.forEach(function(p){out+=p.id+' | '+p.name+' | '+p.type+' | action: '+p.action+' | priority: '+p.priority+' | '+(p.enabled?'ENABLED':'DISABLED')+'\\n'});
+  show('policyResult',out);
+}
+
+async function enforcePolicy(){
+  show('policyResult','Enforcing policies against current context...');
+  const d=await api('/api/policies/enforce',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+  if(d.ok){
+    let out='POLICY ENFORCEMENT: '+d.decision.toUpperCase()+'\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Context: IP='+d.context.ip+' Country='+d.context.country+' Role='+d.context.role+' Time='+d.context.time+' Day='+d.context.day+'\\n';
+    out+='Evaluated: '+d.evaluated+' policies\\n\\n';
+    if(d.results&&d.results.length){
+      d.results.forEach(function(r){out+='  '+r.name+' ('+r.type+'): '+r.result.toUpperCase()+' -> '+r.action+'\\n'});
+    }
+    show('policyResult',out);
+  }else{show('policyResult',JSON.stringify(d))}
+}
+
+// ─── Vault Teams ───
+async function createTeam(){
+  const name=document.getElementById('teamName').value;
+  if(!name){alert('Team name required');return}
+  show('teamResult','Creating team...');
+  const d=await api('/api/teams',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,description:document.getElementById('teamDesc').value})});
+  if(d.ok){
+    let out='TEAM CREATED\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='ID: '+d.id+'\\n';
+    out+='Name: '+d.name+'\\n';
+    out+='Role: '+d.role+'\\n\\n';
+    out+=d.message;
+    show('teamResult',out);
+  }else{show('teamResult',JSON.stringify(d))}
+}
+
+async function listTeams(){
+  const d=await api('/api/teams');
+  if(!d.teams||!d.teams.length){show('teamResult','No teams yet.');return}
+  let out='VAULT TEAMS\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+  d.teams.forEach(function(t){out+=t.id+' | '+t.name+' | members: '+t.member_count+' | credentials: '+t.credential_count+' | '+t.created_at+'\\n'});
+  show('teamResult',out);
+}
+
+// ─── Recovery Codes ───
+async function generateRecovery(){
+  const userId=document.getElementById('recoveryUser').value||'default';
+  show('recoveryResult','Generating recovery codes...');
+  const d=await api('/api/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:userId})});
+  if(d.ok){
+    let out='RECOVERY CODES GENERATED\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Set ID: '+d.set_id+'\\n';
+    out+='User: '+d.user_id+'\\n\\n';
+    out+='SAVE THESE CODES:\\n';
+    d.codes.forEach(function(c){out+='  #'+c.index+': '+c.code+'\\n'});
+    out+='\\n'+d.message+'\\n'+d.warning;
+    show('recoveryResult',out);
+  }else{show('recoveryResult',JSON.stringify(d))}
+}
+
+async function recoveryStatus(){
+  const userId=document.getElementById('recoveryUser').value||'default';
+  const d=await api('/api/recovery?user_id='+encodeURIComponent(userId));
+  if(d.ok){
+    let out='RECOVERY CODE STATUS\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='User: '+d.user_id+'\\n';
+    out+='Active: '+d.active+' | Used: '+d.used+' | Total: '+d.total+'\\n';
+    if(d.needs_regeneration)out+='WARNING: Running low on recovery codes!\\n';
+    out+='\\nCODES:\\n';
+    d.codes.forEach(function(c){out+='  #'+c.index+': '+c.status+(c.used_at?' (used '+c.used_at+')':'')+'\\n'});
+    show('recoveryResult',out);
+  }else{show('recoveryResult',JSON.stringify(d))}
+}
+
+async function validateRecovery(){
+  const code=document.getElementById('recoveryCode').value;
+  const userId=document.getElementById('recoveryUser').value||'default';
+  if(!code){alert('Enter a recovery code');return}
+  show('recoveryResult','Validating...');
+  const d=await api('/api/recovery/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code,user_id:userId})});
+  if(d.valid){
+    let out='RECOVERY CODE ACCEPTED\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+=d.message+'\\n';
+    if(d.warning)out+='\\n'+d.warning;
+    show('recoveryResult',out);
+  }else{show('recoveryResult','INVALID: '+(d.error||'Unknown error'))}
+}
+
+// ─── Credential Strength Analyzer ───
+async function checkStrength(){
+  const cred=document.getElementById('strengthCred').value;
+  if(!cred){alert('Enter a credential to analyze');return}
+  show('strengthResult','Analyzing...');
+  const type=document.getElementById('strengthType').value;
+  const d=await api('/api/strength',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:cred,type:type})});
+  if(d.ok){
+    let out='CREDENTIAL STRENGTH: '+d.grade+' ('+d.score+'/100)\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
+    out+='Strength: '+d.strength+'\\n';
+    out+='Type: '+d.credential_type+'\\n\\n';
+    out+='METRICS:\\n';
+    out+='  Length: '+d.metrics.length+'\\n';
+    out+='  Entropy: '+d.metrics.entropy+' bits\\n';
+    out+='  Character types: '+d.metrics.char_types+'/4\\n';
+    out+='  Unique chars: '+d.metrics.unique_chars+' ('+Math.round(d.metrics.unique_ratio*100)+'%)\\n';
+    out+='  Lowercase: '+(d.metrics.has_lowercase?'Yes':'No')+'\\n';
+    out+='  Uppercase: '+(d.metrics.has_uppercase?'Yes':'No')+'\\n';
+    out+='  Digits: '+(d.metrics.has_digits?'Yes':'No')+'\\n';
+    out+='  Symbols: '+(d.metrics.has_symbols?'Yes':'No')+'\\n\\n';
+    if(d.patterns_detected&&d.patterns_detected.length){
+      out+='PATTERNS DETECTED (penalty: -'+d.pattern_penalty+'):\\n';
+      d.patterns_detected.forEach(function(p){out+='  '+p.type+(p.value?' ('+p.value+')':'')+' [-'+p.penalty+']\\n'});
+      out+='\\n';
+    }
+    if(d.recommendations&&d.recommendations.length){
+      out+='RECOMMENDATIONS:\\n';
+      d.recommendations.forEach(function(r){out+='  - '+r+'\\n'});
+    }
+    show('strengthResult',out);
+  }else{show('strengthResult',JSON.stringify(d))}
 }
 </script>
 </body></html>`;
