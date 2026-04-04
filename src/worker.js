@@ -3323,6 +3323,8 @@ function renderPage() {
 <meta name="description" content="Credential vault with password health, 2FA, breach detection, secure notes, and post to 15 platforms simultaneously.">
 <meta property="og:title" content="CarKeys — BlackRoad OS"><meta property="og:description" content="Credential vault + post to 15 platforms. One click."><meta property="og:url" content="https://carkeys.blackroad.io"><meta property="og:image" content="https://images.blackroad.io/pixel-art/road-logo.png"><meta name="twitter:card" content="summary_large_image"><meta name="robots" content="index, follow, noai, noimageai">
 <link rel="icon" href="https://images.blackroad.io/pixel-art/road-logo.png">
+<link rel="canonical" href="https://carkeys.blackroad.io/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"CarKeys","url":"https://carkeys.blackroad.io/","description":"Master credential vault with quantum-resistant encryption, TOTP, device trust scoring, and family profiles.","applicationCategory":"SecurityApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"BlackRoad OS, Inc.","url":"https://blackroad.io"}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
