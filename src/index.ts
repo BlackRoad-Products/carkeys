@@ -48,7 +48,7 @@ input:focus,select:focus{border-color:var(--gold)}
 .scope.on{border-color:var(--gold);color:var(--gold)}
 .stats-row{display:flex;gap:16px;margin-bottom:20px}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;flex:1;text-align:center}
-.stat-n{font-size:1.6rem;font-weight:700;color:var(--gold)}
+.stat-n{font-size:1.6rem;font-weight:700;color:#e0e0e0}
 .stat-l{font-size:.65rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-top:3px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
 </style></head><body>
