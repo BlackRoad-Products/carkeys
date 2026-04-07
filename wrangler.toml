@@ -1,15 +1,18 @@
 name = "carkeys-blackroad"
-main = "src/worker.js"
-compatibility_date = "2026-03-31"
-
-[ai]
-binding = "AI"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "carkeys"
-database_id = "01e4eba3-5208-4cbe-9bf5-82a5f7657605"
-
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
 [[routes]]
 pattern = "carkeys.blackroad.io/*"
 zone_name = "blackroad.io"
+[vars]
+ENVIRONMENT = "production"
+SERVICE_NAME = "carkeys"
+VERSION = "2.0.0"
+[[kv_namespaces]]
+binding = "STORE"
+id = "2595480dbcad44ffa7cdf2e1fdbff3f2"
+[[d1_databases]]
+binding = "DB"
+database_name = "blackroad-os-main"
+database_id = "e2c6dcd9-c21a-48ac-8807-7b3a6881c4f7"
