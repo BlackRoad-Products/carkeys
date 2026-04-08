@@ -3082,6 +3082,37 @@ Give a 3-sentence compliance summary. Identify the single most impactful improve
           return json({ok:true,message:'Password reset successfully'},cors);
         }
 
+        // ─── Everything Cipher (AES-256-GCM + PBKDF2) ───
+        // Inspired by blackroad-tools/everything_cipher — ported to Web Crypto
+        if (path === '/api/encrypt' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.plaintext || !body.password) return json({error:'plaintext and password required'},cors,400);
+          const enc = new TextEncoder();
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(body.password), 'PBKDF2', false, ['deriveKey']);
+          const key = await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'}, keyMaterial, {name:'AES-GCM',length:256}, false, ['encrypt']);
+          const ciphertext = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, enc.encode(body.plaintext));
+          const saltHex = Array.from(salt).map(b=>b.toString(16).padStart(2,'0')).join('');
+          const ivHex = Array.from(iv).map(b=>b.toString(16).padStart(2,'0')).join('');
+          const ctB64 = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+          return json({encrypted:true, salt:saltHex, iv:ivHex, ciphertext:ctB64, algorithm:'AES-256-GCM', kdf:'PBKDF2-SHA256-100k'},cors);
+        }
+        if (path === '/api/decrypt' && request.method === 'POST') {
+          const body = await request.json();
+          if (!body.ciphertext || !body.password || !body.salt || !body.iv) return json({error:'ciphertext, password, salt, iv required'},cors,400);
+          try {
+            const enc = new TextEncoder();
+            const salt = new Uint8Array(body.salt.match(/.{2}/g).map(h=>parseInt(h,16)));
+            const iv = new Uint8Array(body.iv.match(/.{2}/g).map(h=>parseInt(h,16)));
+            const ct = Uint8Array.from(atob(body.ciphertext), c=>c.charCodeAt(0));
+            const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(body.password), 'PBKDF2', false, ['deriveKey']);
+            const key = await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'}, keyMaterial, {name:'AES-GCM',length:256}, false, ['decrypt']);
+            const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv}, key, ct);
+            return json({decrypted:true, plaintext:new TextDecoder().decode(plain)},cors);
+          } catch { return json({error:'Decryption failed — wrong password or corrupted data'},cors,401); }
+        }
+
         // --- Enhanced: Security score ---
         const scoreMatch = path.match(/^\/api\/score\/([^/]+)$/);
         if (scoreMatch && request.method === 'GET') {
