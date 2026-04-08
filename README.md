@@ -1,71 +1,45 @@
 # CarKeys
 
-*Grab your keys. You're not going anywhere without them.*
+> **THE VAULT** — Part of [BlackRoad OS](https://os.blackroad.io)
 
-Unified credential vault and device registry. One secure keychain for every login, API token, passkey, and device across The BlackRoad.
-
-## The Ride
-
-Grab your CarKeys. Every login, every token, every device — one keychain, always fresh. Rotate a key? It updates everywhere. Add a new device? Trusted in seconds. You're not going anywhere without them, and you'll never lose them.
-
-## What It Does
-
-Master credential manager that handles authentication, API key storage, device trust scoring, and session management across all 18 BlackRoad products. CarKeys is the ignition — nothing starts without it.
-
-## Integrations
-
-| Service | Role |
-|---------|------|
-| **Clerk** | Identity provider — user auth, SSO, MFA, session management |
-| **Cloudflare D1** | Credential metadata, device registry, rotation history |
-| **Cloudflare KV** | Session token cache, fast auth lookups |
-| **Stripe** | Subscription tier lookup for access control |
-| **RoadChain** | Immutable audit log of every key use, rotation, and revocation |
-| **Ollama** | Local agent identity tokens for Pi fleet authentication |
-
-## Vault Structure
-
-```
-CarKeys Vault
-├── Identities       → Clerk SSO sessions + passkeys
-├── API Keys         → Per-product keys with scoped permissions
-├── Device Registry  → Trusted devices with fingerprint + trust score
-├── Guest Keys       → Time-limited tokens for contractors or agents
-├── Team Profiles    → Scoped access for family or org members
-└── Audit Log        → Every event RoadChain-stamped
-```
-
-## Features
-
-- Single sign-on across all 18 BlackRoad products via Clerk
-- API key generation with configurable scopes and expiry
-- Automatic key rotation on schedule or on demand
-- Device fingerprinting and trust scoring (0–100)
-- Family and team profiles with granular permission scoping
-- Time-limited guest keys for contractors, collaborators, or AI agents
-- Zero-knowledge architecture — credentials encrypted on-device before storage
-- Revocation dashboard — invalidate any key or session in one click
-- RoadChain-stamped audit trail for every credential event
-- Emergency lockdown — freeze all sessions with one tap
-
-## Trust Score System
-
-```
-Device Score = base(OS + browser) + history(logins) + behavior(patterns) - risk(anomalies)
-
-≥ 80 → Trusted: full access
-50–79 → Verified: standard access, MFA required for sensitive ops
-< 50 → Untrusted: read-only, manual review required
-```
-
-## Status
-
-**LIVE** — 94 lines (expanding) | [carkeys.blackroad.io](https://carkeys.blackroad.io)
-
-## How It Powers The BlackRoad
-
-CarKeys is the ignition. Every other product starts only after CarKeys authenticates you. No keys, no ride — and your keys are always exactly where you left them.
+[![Live](https://img.shields.io/badge/status-LIVE-brightgreen?style=flat-square)](https://carkeys.blackroad.io)
+[![BlackRoad OS](https://img.shields.io/badge/BlackRoad_OS-18_products-black?style=flat-square)](https://os.blackroad.io)
+[![Agent](https://img.shields.io/badge/agent-Celeste-8844FF?style=flat-square)](https://roadtrip.blackroad.io)
 
 ---
 
-Part of [BlackRoad OS](https://blackroad.io) — Remember the Road. Pave Tomorrow.
+## Sovereign credential vault. End-to-end encrypted. Celeste guards every key.
+
+**Live at:** [carkeys.blackroad.io](https://carkeys.blackroad.io)  
+**Your agent:** Celeste  
+**Tag:** Sovereign Credential Vault
+
+---
+
+## Connected Products
+
+| Product | URL |
+|---------|-----|
+| [RoadChain](https://roadchain.blackroad.io) | roadchain.blackroad.io |
+| [BlackRoad OS](https://os.blackroad.io) | os.blackroad.io |
+| [RoadWork](https://roadwork.blackroad.io) | roadwork.blackroad.io |
+| [RoadTrip](https://roadtrip.blackroad.io) | roadtrip.blackroad.io |
+
+---
+
+## The Highway
+
+BlackRoad OS is a sovereign AI operating system — 18 products, 27 agents, one persistent tab.
+
+| | | |
+|---|---|---|
+| [BlackRoad OS](https://os.blackroad.io) | [RoadTrip](https://roadtrip.blackroad.io) | [Roadie](https://roadie.blackroad.io) |
+| [RoadView](https://roadview.blackroad.io) | [RoadWork](https://roadwork.blackroad.io) | [RoadCode](https://roadcode.blackroad.io) |
+| [RoadBook](https://roadbook.blackroad.io) | [RoadChain](https://roadchain.blackroad.io) | [RoadCoin](https://roadcoin.blackroad.io) |
+| [BackRoad](https://backroad.blackroad.io) | [BlackBoard](https://blackboard.blackroad.io) | [CarKeys](https://carkeys.blackroad.io) |
+| [CarPool](https://carpool.blackroad.io) | [OfficeRoad](https://officeroad.blackroad.io) | [OneWay](https://oneway.blackroad.io) |
+| [RoadSide](https://roadside.blackroad.io) | [RoadWorld](https://roadworld.blackroad.io) | [Highway](https://highway.blackroad.io) |
+
+---
+
+> *Remember the Road. Pave Tomorrow.* — [BlackRoad OS, Inc.](https://os.blackroad.io)
