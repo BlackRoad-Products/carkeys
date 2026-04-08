@@ -23,6 +23,24 @@ const PLATFORMS = {
 function e(s) { return encodeURIComponent(s); }
 const SEC = { 'Content-Security-Policy': "frame-ancestors 'self' https://blackroad.io https://*.blackroad.io" };
 
+const CK_SECURITY = [
+  { slug: 'password-best-practices', name: 'Password Best Practices', category: 'Passwords', description: 'Create and manage strong passwords. Length, complexity, and why unique passwords per service matter.', keyPoints: ['Use at least 16 characters for every password', 'Never reuse passwords across services', 'Use a passphrase of 4+ random words as an alternative', 'Enable breach monitoring to detect compromised passwords', 'Change passwords immediately if a service is breached'], threatLevel: 'high', related: ['password-manager-guide', 'two-factor-setup', 'credential-hygiene'] },
+  { slug: 'two-factor-setup', name: 'Two-Factor Authentication Setup', category: 'Authentication', description: 'Set up 2FA across your accounts. TOTP apps, hardware keys, and backup codes explained.', keyPoints: ['Use TOTP apps (Authy, 1Password) instead of SMS', 'Hardware security keys (YubiKey) are the strongest option', 'Always save backup codes in a secure location', 'Enable 2FA on email first since it is the recovery path', 'Disable SMS-based 2FA wherever possible'], threatLevel: 'high', related: ['biometric-auth', 'password-best-practices', 'phishing-protection'] },
+  { slug: 'phishing-protection', name: 'Phishing Protection', category: 'Authentication', description: 'Recognize and avoid phishing attacks. Email, SMS, and social engineering warning signs.', keyPoints: ['Check sender email addresses carefully for spoofing', 'Never click links in unexpected emails', 'Hover over links to verify the actual URL destination', 'Legitimate companies never ask for passwords via email', 'Report phishing attempts to your IT team and the platform'], threatLevel: 'high', related: ['social-engineering', 'two-factor-setup', 'credential-hygiene'] },
+  { slug: 'ssh-key-management', name: 'SSH Key Management', category: 'Authentication', description: 'Generate, store, and rotate SSH keys properly. Ed25519 keys, agents, and access control.', keyPoints: ['Use Ed25519 keys instead of RSA for better security', 'Protect private keys with a strong passphrase', 'Use ssh-agent to avoid typing passphrases repeatedly', 'Rotate SSH keys annually or when team members leave', 'Never share private keys between machines or users'], threatLevel: 'medium', related: ['api-key-rotation', 'credential-hygiene', 'encryption-basics'] },
+  { slug: 'api-key-rotation', name: 'API Key Rotation', category: 'Authentication', description: 'Implement regular API key rotation. Automation, zero-downtime rotation, and revocation procedures.', keyPoints: ['Rotate API keys every 90 days at minimum', 'Use environment variables, never hardcode keys', 'Implement zero-downtime rotation with overlapping validity', 'Monitor for unauthorized key usage with logging', 'Revoke compromised keys immediately, then rotate all related keys'], threatLevel: 'medium', related: ['ssh-key-management', 'credential-hygiene', 'security-audit-checklist'] },
+  { slug: 'encryption-basics', name: 'Encryption Basics', category: 'Network', description: 'Understand encryption fundamentals. Symmetric vs asymmetric, TLS, and data at rest vs in transit.', keyPoints: ['TLS encrypts data in transit between client and server', 'AES-256 is the standard for encrypting data at rest', 'Asymmetric encryption uses public/private key pairs', 'Always use HTTPS, never plain HTTP, for any data exchange', 'Encrypt backups and sensitive files before storing them'], threatLevel: 'medium', related: ['vpn-setup', 'ssh-key-management', 'zero-trust-intro'] },
+  { slug: 'zero-trust-intro', name: 'Zero Trust Introduction', category: 'Network', description: 'Understand the zero trust security model. Never trust, always verify. Micro-segmentation and least privilege.', keyPoints: ['Never trust any user or device by default', 'Verify every access request regardless of network location', 'Apply least-privilege access to every resource', 'Use micro-segmentation to limit lateral movement', 'Log and monitor all access for anomaly detection'], threatLevel: 'medium', related: ['vpn-setup', 'encryption-basics', 'security-audit-checklist'] },
+  { slug: 'vpn-setup', name: 'VPN Setup Guide', category: 'Network', description: 'Set up and use VPNs properly. WireGuard, OpenVPN, and when you actually need a VPN.', keyPoints: ['WireGuard is faster and simpler than OpenVPN', 'Use a VPN on public WiFi networks always', 'A VPN does not make you anonymous, it shifts trust', 'Self-hosted VPN gives you full control over logs', 'Split tunneling lets you route only sensitive traffic through VPN'], threatLevel: 'medium', related: ['encryption-basics', 'zero-trust-intro', 'ssh-key-management'] },
+  { slug: 'password-manager-guide', name: 'Password Manager Guide', category: 'Passwords', description: 'Choose and set up a password manager. Migration, sharing, and emergency access features.', keyPoints: ['Use one strong master password you can remember', 'Enable auto-fill to avoid typing passwords on fake sites', 'Share passwords through the manager, never via chat or email', 'Set up emergency access for trusted contacts', 'Export and backup your vault periodically'], threatLevel: 'high', related: ['password-best-practices', 'two-factor-setup', 'credential-hygiene'] },
+  { slug: 'biometric-auth', name: 'Biometric Authentication', category: 'Authentication', description: 'Using fingerprint, face, and passkeys for authentication. Benefits, risks, and best practices.', keyPoints: ['Biometrics are convenient but cannot be changed if compromised', 'Use biometrics as a second factor, not a replacement for passwords', 'Passkeys combine biometrics with cryptographic security', 'Face ID and Touch ID store data locally on the device', 'Always set a PIN or password as a fallback method'], threatLevel: 'low', related: ['two-factor-setup', 'password-best-practices', 'phishing-protection'] },
+  { slug: 'social-engineering', name: 'Social Engineering Defense', category: 'Compliance', description: 'Protect against social engineering attacks. Pretexting, baiting, tailgating, and vishing tactics.', keyPoints: ['Verify identity through a separate channel before sharing info', 'Be suspicious of urgency and authority in requests', 'Never share credentials over phone regardless of who is asking', 'Report suspicious contacts to your security team', 'Regular training is the best defense against social engineering'], threatLevel: 'high', related: ['phishing-protection', 'credential-hygiene', 'data-breach-response'] },
+  { slug: 'data-breach-response', name: 'Data Breach Response Plan', category: 'Incident Response', description: 'What to do when a breach occurs. Containment, notification, remediation, and lessons learned.', keyPoints: ['Contain the breach by revoking compromised access immediately', 'Document everything from the moment of discovery', 'Notify affected users within 72 hours per GDPR requirements', 'Engage legal counsel before public communication', 'Conduct a thorough post-incident review and update defenses'], threatLevel: 'high', related: ['security-audit-checklist', 'credential-hygiene', 'gdpr-compliance'] },
+  { slug: 'gdpr-compliance', name: 'GDPR Compliance Basics', category: 'Compliance', description: 'Essential GDPR requirements for developers. Data collection, consent, storage, and user rights.', keyPoints: ['Collect only the minimum data needed for the service', 'Get explicit consent before collecting personal data', 'Provide users the ability to export and delete their data', 'Document all data processing activities', 'Report breaches to authorities within 72 hours'], threatLevel: 'medium', related: ['data-breach-response', 'security-audit-checklist', 'encryption-basics'] },
+  { slug: 'security-audit-checklist', name: 'Security Audit Checklist', category: 'Compliance', description: 'Quarterly security audit checklist for teams. Authentication, data handling, infrastructure, and dependencies.', keyPoints: ['Review all user access and remove unused accounts', 'Scan dependencies for known vulnerabilities', 'Verify encryption is enabled for data at rest and in transit', 'Check that logging and monitoring are functioning', 'Test backup restoration procedures'], threatLevel: 'medium', related: ['gdpr-compliance', 'api-key-rotation', 'data-breach-response'] },
+  { slug: 'credential-hygiene', name: 'Credential Hygiene', category: 'Passwords', description: 'Daily habits for keeping credentials safe. Storage, sharing, disposal, and monitoring practices.', keyPoints: ['Never store credentials in plaintext files or code repos', 'Use environment variables or secret managers for application secrets', 'Regularly audit who has access to shared credentials', 'Rotate credentials when any team member leaves', 'Monitor for credential leaks on public repositories and paste sites'], threatLevel: 'high', related: ['password-best-practices', 'api-key-rotation', 'password-manager-guide'] },
+];
+
 async function stampChain(action, entity, details) {
   fetch('https://roadchain-worker.blackroad.workers.dev/api/event', {
     method: 'POST', headers: {'Content-Type':'application/json'},
@@ -161,6 +179,72 @@ async function decryptData(encryptedStr, password) {
   return new TextDecoder().decode(decrypted);
 }
 
+// ─── Auth helpers: PBKDF2 + JWT (Web Crypto API) ───
+const JWT_SECRET = 'blackroad-carkeys-2026';
+const JWT_EXPIRY = 86400; // 24 hours
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const hash = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)));
+}
+
+async function verifyPassword(password, salt, storedHash) {
+  const hash = await hashPassword(password, salt);
+  return hash === storedHash;
+}
+
+function base64UrlEncode(str) {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function base64UrlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return atob(str);
+}
+
+async function getHMACKey(secret) {
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+
+async function createJWT(payload, secret) {
+  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = base64UrlEncode(JSON.stringify(payload));
+  const key = await getHMACKey(secret);
+  const enc = new TextEncoder();
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${header}.${body}`));
+  const signature = base64UrlEncode(String.fromCharCode(...new Uint8Array(sig)));
+  return `${header}.${body}.${signature}`;
+}
+
+async function decodeJWT(token, secret) {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, signature] = parts;
+  const key = await getHMACKey(secret);
+  const enc = new TextEncoder();
+  const valid = await crypto.subtle.verify('HMAC', key, Uint8Array.from(base64UrlDecode(signature), c => c.charCodeAt(0)), enc.encode(`${header}.${body}`));
+  if (!valid) return null;
+  try { return JSON.parse(base64UrlDecode(body)); } catch { return null; }
+}
+
+async function verifyToken(request) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) return { valid: false, error: 'Missing or invalid Authorization header' };
+  const token = auth.slice(7);
+  const payload = await decodeJWT(token, JWT_SECRET);
+  if (!payload) return { valid: false, error: 'Invalid token signature' };
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return { valid: false, error: 'Token expired' };
+  return { valid: true, user: { id: payload.sub, email: payload.email, name: payload.name, role: payload.role } };
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -170,6 +254,38 @@ export default {
 
     if (request.method === 'OPTIONS') return new Response(null, {status:204,headers:cors});
 
+    if (path === '/api/track' && (request.method === 'POST' || method === 'POST')) {
+      try { const body = await request.json(); const cf = request.cf || {};
+        if (env.DB) { await env.DB.prepare("CREATE TABLE IF NOT EXISTS analytics_events (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT DEFAULT 'pageview', path TEXT, referrer TEXT, country TEXT, city TEXT, device TEXT, screen TEXT, scroll_depth INTEGER DEFAULT 0, engagement_ms INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))").run();
+        await env.DB.prepare('INSERT INTO analytics_events (type, path, referrer, country, city, device, screen, scroll_depth, engagement_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(body.type||'pageview', body.path||'/', body.referrer||'', cf.country||'', cf.city||'', body.device||'', body.screen||'', body.scroll||0, body.time||0).run(); }
+      } catch(e) {}
+      return new Response(JSON.stringify({ok:true}), {headers:{'Content-Type':'application/json'}});
+    }
+
+    // ── Sovereign Analytics ──
+    if (path === '/api/analytics' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const cf = request.cf || {};
+        const ip = request.headers.get('CF-Connecting-IP') || '';
+        const ipHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip + '2026'));
+        const visitor = btoa(String.fromCharCode(...new Uint8Array(ipHash))).slice(0,12);
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS br_analytics (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT, referrer TEXT, visitor TEXT, country TEXT, city TEXT, screen TEXT, ts TEXT DEFAULT (datetime('now')))`).run();
+        await env.DB.prepare('INSERT INTO br_analytics (path, referrer, visitor, country, city, screen) VALUES (?,?,?,?,?,?)').bind(body.path||'/', body.ref||'', visitor, cf.country||'', cf.city||'', (body.w||0)+'x'+(body.h||0)).run();
+      } catch(e){}
+      return new Response('ok', {headers:{'Access-Control-Allow-Origin':'*'}});
+    }
+    if (path === '/api/analytics/stats') {
+      try {
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS br_analytics (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT, referrer TEXT, visitor TEXT, country TEXT, city TEXT, screen TEXT, ts TEXT DEFAULT (datetime('now')))`).run();
+        const total = await env.DB.prepare('SELECT COUNT(*) as c FROM br_analytics').first();
+        const unique = await env.DB.prepare('SELECT COUNT(DISTINCT visitor) as c FROM br_analytics').first();
+        const today = await env.DB.prepare("SELECT COUNT(*) as c FROM br_analytics WHERE ts > datetime('now','-1 day')").first();
+        const pages = await env.DB.prepare('SELECT path, COUNT(*) as views FROM br_analytics GROUP BY path ORDER BY views DESC LIMIT 10').all();
+        const countries = await env.DB.prepare('SELECT country, COUNT(*) as c FROM br_analytics WHERE country != "" GROUP BY country ORDER BY c DESC LIMIT 10').all();
+        return new Response(JSON.stringify({total_views:total?.c||0,unique_visitors:unique?.c||0,today:today?.c||0,top_pages:pages?.results||[],top_countries:countries?.results||[]}),{headers:{'Access-Control-Allow-Origin':'*','Content-Type':'application/json'}});
+      } catch(e) { return new Response(JSON.stringify({error:'analytics unavailable'}),{status:500,headers:{'Content-Type':'application/json'}}); }
+    }
     if (path === '/api/health') return Response.json({ status: 'up', service: 'CarKeys', platforms: Object.keys(PLATFORMS).length });
     if (path === '/api/platforms') return Response.json(Object.entries(PLATFORMS).map(([id, p]) => ({ id, name: p.name })));
 
@@ -2828,6 +2944,145 @@ Give a 3-sentence compliance summary. Identify the single most impactful improve
         }
 
 
+        // ─── Auth: Signup ───
+        if (path === '/api/auth/signup' && request.method === 'POST') {
+          const body = await request.json();
+          const { email, password, name } = body;
+          if (!email || !isValidEmail(email)) return json({ error: 'Valid email is required' }, cors, 400);
+          if (!password || password.length < 8) return json({ error: 'Password must be at least 8 characters' }, cors, 400);
+          const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email.toLowerCase()).first();
+          if (existing) return json({ error: 'Email already registered' }, cors, 409);
+          const id = crypto.randomUUID();
+          const salt = crypto.randomUUID();
+          const password_hash = await hashPassword(password, salt);
+          await env.DB.prepare('INSERT INTO users (id, email, password_hash, salt, name) VALUES (?, ?, ?, ?, ?)').bind(id, email.toLowerCase(), password_hash, salt, name || '').run();
+          const now = Math.floor(Date.now() / 1000);
+          const token = await createJWT({ sub: id, email: email.toLowerCase(), name: name || '', role: 'user', iat: now, exp: now + JWT_EXPIRY }, JWT_SECRET);
+          await logAudit(env.DB, 'signup', id, `User signed up: ${email}`);
+          stampChain('signup', 'user', email);
+          return json({ token, user: { id, email: email.toLowerCase(), name: name || '' }, expires_in: JWT_EXPIRY }, cors);
+        }
+
+        // ─── Auth: Login ───
+        if (path === '/api/auth/login' && request.method === 'POST') {
+          const body = await request.json();
+          const { email, password } = body;
+          if (!email || !password) return json({ error: 'Email and password are required' }, cors, 400);
+          const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email.toLowerCase()).first();
+          if (!user) return json({ error: 'Invalid email or password' }, cors, 401);
+          const valid = await verifyPassword(password, user.salt, user.password_hash);
+          if (!valid) return json({ error: 'Invalid email or password' }, cors, 401);
+          const now = Math.floor(Date.now() / 1000);
+          const token = await createJWT({ sub: user.id, email: user.email, name: user.name, role: user.role || 'user', iat: now, exp: now + JWT_EXPIRY }, JWT_SECRET);
+          await logAudit(env.DB, 'login', user.id, `User logged in: ${email}`);
+          stampChain('login', 'user', email);
+          return json({ token, user: { id: user.id, email: user.email, name: user.name }, expires_in: JWT_EXPIRY }, cors);
+        }
+
+        // ─── Auth: Me (profile) ───
+        if (path === '/api/auth/me' && request.method === 'GET') {
+          const auth = await verifyToken(request);
+          if (!auth.valid) return json({ error: auth.error }, cors, 401);
+          const user = await env.DB.prepare('SELECT id, email, name, role, created_at FROM users WHERE id = ?').bind(auth.user.id).first();
+          if (!user) return json({ error: 'User not found' }, cors, 404);
+          return json({ user }, cors);
+        }
+
+        // ─── Auth: Refresh token ───
+        if (path === '/api/auth/refresh' && request.method === 'POST') {
+          const authHeader = (request.headers.get('Authorization') || '');
+          if (!authHeader.startsWith('Bearer ')) return json({ error: 'Missing token' }, cors, 401);
+          const token = authHeader.slice(7);
+          const payload = await decodeJWT(token, JWT_SECRET);
+          if (!payload) return json({ error: 'Invalid token' }, cors, 401);
+          const now = Math.floor(Date.now() / 1000);
+          const maxGrace = 7 * 24 * 60 * 60; // 7 days
+          if (payload.exp && (now - payload.exp) > maxGrace) return json({ error: 'Token too old to refresh' }, cors, 401);
+          const newToken = await createJWT({ sub: payload.sub, email: payload.email, name: payload.name, role: payload.role || 'user', iat: now, exp: now + JWT_EXPIRY }, JWT_SECRET);
+          return json({ token: newToken, expires_in: JWT_EXPIRY }, cors);
+        }
+
+        // --- Enhanced: Session management ---
+        if (path === '/api/sessions/create' && request.method === 'POST') {
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS ck_sessions (id TEXT PRIMARY KEY, user_id TEXT, token_hash TEXT, device TEXT, ip TEXT, created_at TEXT DEFAULT (datetime('now')), expires_at TEXT, revoked INTEGER DEFAULT 0)").run();
+          const body = await request.json();
+          const id = crypto.randomUUID().slice(0,12);
+          const tokenBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.token || crypto.randomUUID()));
+          const tokenHash = Array.from(new Uint8Array(tokenBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          const expires = new Date(Date.now() + 86400000 * 7).toISOString();
+          await env.DB.prepare("INSERT INTO ck_sessions (id,user_id,token_hash,device,ip,expires_at) VALUES (?,?,?,?,?,?)").bind(id,body.user_id||'',tokenHash,body.device||'',body.ip||'',expires).run();
+          return json({ok:true,session_id:id,expires_at:expires},cors);
+        }
+        const sessionsMatch = path.match(/^\/api\/sessions\/([^/]+)$/);
+        if (sessionsMatch && request.method === 'GET') {
+          try { await env.DB.prepare("CREATE TABLE IF NOT EXISTS ck_sessions (id TEXT PRIMARY KEY, user_id TEXT, token_hash TEXT, device TEXT, ip TEXT, created_at TEXT DEFAULT (datetime('now')), expires_at TEXT, revoked INTEGER DEFAULT 0)").run(); } catch{}
+          const rows = await env.DB.prepare("SELECT id,user_id,device,ip,created_at,expires_at,revoked FROM ck_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20").bind(sessionsMatch[1]).all();
+          return json({sessions:rows.results},cors);
+        }
+        const revokeMatch = path.match(/^\/api\/sessions\/([^/]+)\/revoke$/);
+        if (revokeMatch && request.method === 'POST') {
+          await env.DB.prepare("UPDATE ck_sessions SET revoked = 1 WHERE id = ?").bind(revokeMatch[1]).run();
+          return json({ok:true,revoked:revokeMatch[1]},cors);
+        }
+
+        // --- Enhanced: Audit log ---
+        const auditMatch = path.match(/^\/api\/audit\/([^/]+)$/);
+        if (auditMatch && request.method === 'GET') {
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS ck_audit (id TEXT PRIMARY KEY, user_id TEXT, action TEXT, resource TEXT, ip TEXT, success INTEGER DEFAULT 1, created_at TEXT DEFAULT (datetime('now')))").run();
+          const limit = Math.min(parseInt(url.searchParams.get('limit')||'50'),200);
+          const rows = await env.DB.prepare("SELECT * FROM ck_audit WHERE user_id = ? ORDER BY created_at DESC LIMIT ?").bind(auditMatch[1],limit).all();
+          return json({audit:rows.results},cors);
+        }
+
+        // --- Enhanced: Key rotation ---
+        if (path === '/api/keys/rotate' && request.method === 'POST') {
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS ck_keys (id TEXT PRIMARY KEY, user_id TEXT, public_key TEXT, key_hash TEXT, algorithm TEXT DEFAULT 'ECDSA-P256', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')))").run();
+          const body = await request.json();
+          if (!body.user_id) return json({error:'user_id required'},cors,400);
+          const keyPair = await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+          const pubRaw = await crypto.subtle.exportKey('raw',keyPair.publicKey);
+          const pubHex = Array.from(new Uint8Array(pubRaw)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          const hashBuf = await crypto.subtle.digest('SHA-256',pubRaw);
+          const keyHash = Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          // Deactivate old keys
+          await env.DB.prepare("UPDATE ck_keys SET status = 'rotated' WHERE user_id = ? AND status = 'active'").bind(body.user_id).run();
+          const id = crypto.randomUUID().slice(0,12);
+          await env.DB.prepare("INSERT INTO ck_keys (id,user_id,public_key,key_hash) VALUES (?,?,?,?)").bind(id,body.user_id,pubHex,keyHash).run();
+          // Audit
+          try { await env.DB.prepare("INSERT INTO ck_audit (id,user_id,action,resource) VALUES (?,?,?,?)").bind(crypto.randomUUID().slice(0,12),body.user_id,'key_rotation',id).run(); } catch{}
+          return json({ok:true,key_id:id,public_key:pubHex.slice(0,32)+'...',algorithm:'ECDSA-P256'},cors);
+        }
+
+        // --- Enhanced: Security score ---
+        const scoreMatch = path.match(/^\/api\/score\/([^/]+)$/);
+        if (scoreMatch && request.method === 'GET') {
+          let score = 0; const factors = [];
+          // MFA check (placeholder — 30 pts)
+          factors.push({factor:'mfa',points:0,note:'MFA not yet enrolled'});
+          // Key freshness (25 pts)
+          try {
+            await env.DB.prepare("CREATE TABLE IF NOT EXISTS ck_keys (id TEXT PRIMARY KEY, user_id TEXT, public_key TEXT, key_hash TEXT, algorithm TEXT DEFAULT 'ECDSA-P256', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')))").run();
+            const key = await env.DB.prepare("SELECT created_at FROM ck_keys WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1").bind(scoreMatch[1]).first();
+            if (key) { const age = (Date.now() - new Date(key.created_at).getTime()) / 86400000; const pts = age < 90 ? 25 : age < 180 ? 15 : 5; score += pts; factors.push({factor:'key_age',points:pts,note:`Key is ${Math.round(age)} days old`}); }
+            else factors.push({factor:'key_age',points:0,note:'No active key'});
+          } catch{ factors.push({factor:'key_age',points:0,note:'Error checking keys'}); }
+          // Session hygiene (20 pts)
+          try {
+            const revoked = await env.DB.prepare("SELECT COUNT(*) as cnt FROM ck_sessions WHERE user_id = ? AND revoked = 1").bind(scoreMatch[1]).first();
+            const total = await env.DB.prepare("SELECT COUNT(*) as cnt FROM ck_sessions WHERE user_id = ?").bind(scoreMatch[1]).first();
+            const clean = (revoked?.cnt||0) === 0 || (total?.cnt||0) < 3;
+            const pts = clean ? 20 : 10; score += pts;
+            factors.push({factor:'sessions',points:pts,note:`${total?.cnt||0} sessions, ${revoked?.cnt||0} revoked`});
+          } catch{ factors.push({factor:'sessions',points:0}); }
+          // Audit health (25 pts)
+          try {
+            const recent = await env.DB.prepare("SELECT COUNT(*) as cnt FROM ck_audit WHERE user_id = ? AND success = 0 AND created_at > datetime('now','-7 days')").bind(scoreMatch[1]).first();
+            const pts = (recent?.cnt||0) === 0 ? 25 : (recent?.cnt||0) < 3 ? 15 : 5; score += pts;
+            factors.push({factor:'audit',points:pts,note:`${recent?.cnt||0} failed actions in 7d`});
+          } catch{ factors.push({factor:'audit',points:0}); }
+          return json({user_id:scoreMatch[1],score,max:100,grade:score>=80?'A':score>=60?'B':score>=40?'C':'D',factors},cors);
+        }
+
         return json({error:'not found'},cors,404);
       } catch(err) {
         return json({error:err.message},cors,500);
@@ -2838,6 +3093,41 @@ Give a 3-sentence compliance summary. Identify the single most impactful improve
     if (path.startsWith('/shared/')) {
       const token = path.split('/')[2];
       return new Response(renderSharedPage(token, url.origin), { headers: { 'Content-Type': 'text/html;charset=utf-8', ...SEC } });
+    }
+
+    if (path === '/sitemap.xml') {
+      const secUrls = CK_SECURITY.map(s => `  <url><loc>https://carkeys.blackroad.io/security/${s.slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`).join('\n');
+      return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://carkeys.blackroad.io/</loc><lastmod>2026-04-05</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n  <url><loc>https://carkeys.blackroad.io/security</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n${secUrls}\n</urlset>`, { headers: { 'Content-Type': 'application/xml' } });
+    }
+
+    if (path === '/robots.txt') {
+      return new Response(`User-agent: *\nAllow: /\nSitemap: https://carkeys.blackroad.io/sitemap.xml\n\nUser-agent: GPTBot\nDisallow: /\n\nUser-agent: ChatGPT-User\nDisallow: /\n\nUser-agent: CCBot\nDisallow: /`, { headers: { 'Content-Type': 'text/plain' } });
+    }
+
+    // ─── Security guide content pages (SEO) ───
+    if (path === '/security') {
+      const cats = {};
+      CK_SECURITY.forEach(s => { (cats[s.category] = cats[s.category] || []).push(s); });
+      const listing = Object.entries(cats).map(([cat, items]) =>
+        `<div style="margin-bottom:32px"><h2 style="font-size:18px;font-weight:700;margin-bottom:12px;color:#f5f5f5">${cat}</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${items.map(s => `<a href="/security/${s.slug}" style="display:block;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:16px;text-decoration:none;transition:border-color .2s"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:14px;font-weight:600;color:#f5f5f5">${s.name}</span><span style="font-size:9px;padding:2px 8px;border-radius:10px;background:${s.threatLevel==='high'?'#ff225522':'#f5a62322'};color:${s.threatLevel==='high'?'#ff2255':'#f5a623'};font-family:monospace">${s.threatLevel}</span></div><p style="font-size:12px;color:#737373;line-height:1.5">${s.description}</p></a>`).join('')}</div></div>`
+      ).join('');
+      const pageHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Security Guides - CarKeys by BlackRoad OS</title><meta name="description" content="15+ security guides covering passwords, authentication, network security, compliance, and incident response. Protect your credentials and infrastructure."><meta property="og:title" content="Security Guides - CarKeys"><meta property="og:description" content="15+ security guides for passwords, authentication, network security, and compliance."><meta property="og:url" content="https://carkeys.blackroad.io/security"><meta property="og:image" content="https://images.blackroad.io/pixel-art/road-logo.png"><meta name="twitter:card" content="summary_large_image"><link rel="canonical" href="https://carkeys.blackroad.io/security"><script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","name":"Security Guides","url":"https://carkeys.blackroad.io/security","description":"15+ security guides for passwords, authentication, network security, and compliance.","publisher":{"@type":"Organization","name":"BlackRoad OS, Inc."}}</script><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#f5f5f5;font-family:'Space Grotesk',sans-serif}a{color:inherit}a:hover{border-color:#333 !important}.bar{height:3px;background:linear-gradient(90deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);position:fixed;top:0;left:0;right:0;z-index:1000}nav{position:fixed;top:3px;left:0;right:0;z-index:999;background:rgba(0,0,0,.92);backdrop-filter:blur(20px);border-bottom:1px solid #1a1a1a;height:48px;display:flex;align-items:center;padding:0 24px;gap:16px}nav a{font-size:12px;color:#737373}nav a:hover{color:#f5f5f5}.container{max-width:960px;margin:0 auto;padding:80px 24px 48px}</style></head><body><div class="bar"></div><nav><a href="/" style="font-weight:700;font-size:15px;color:#f5f5f5">CarKeys</a><a href="/security" style="color:#f5f5f5">Security</a><a href="https://blackroad.io">Highway</a><a href="https://app.blackroad.io" style="padding:6px 14px;border-radius:5px;background:#f5f5f5;color:#000;font-weight:600;font-size:11px">Open OS</a></nav><div class="container"><h1 style="font-size:clamp(24px,5vw,40px);font-weight:700;margin-bottom:8px">Security Guides</h1><p style="color:#737373;margin-bottom:32px;max-width:600px;line-height:1.6">Protect your credentials, devices, and data. Practical security guides for developers and teams.</p>${listing}</div><script>(function(){var d={path:location.pathname,ref:document.referrer,w:screen.width,h:screen.height,t:Date.now()};navigator.sendBeacon&&navigator.sendBeacon('/api/analytics',JSON.stringify(d))})()</script></body></html>`;
+      return new Response(pageHtml, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...SEC } });
+    }
+
+    const secMatch = path.match(/^\/security\/([a-z0-9-]+)$/);
+    if (secMatch) {
+      const guide = CK_SECURITY.find(s => s.slug === secMatch[1]);
+      if (!guide) return new Response('Guide not found', { status: 404 });
+      const related = CK_SECURITY.filter(s => guide.related.includes(s.slug)).slice(0, 4);
+      const threatColors = { high: '#ff2255', medium: '#f5a623', low: '#22c55e' };
+      const threatBg = { high: '#ff225522', medium: '#f5a62322', low: '#22c55e22' };
+      const guideHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${guide.name} - CarKeys by BlackRoad OS</title><meta name="description" content="${guide.description}"><meta property="og:title" content="${guide.name} - CarKeys Security"><meta property="og:description" content="${guide.description}"><meta property="og:url" content="https://carkeys.blackroad.io/security/${guide.slug}"><meta property="og:image" content="https://images.blackroad.io/pixel-art/road-logo.png"><meta name="twitter:card" content="summary"><link rel="canonical" href="https://carkeys.blackroad.io/security/${guide.slug}"><script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"${guide.name}","description":"${guide.description}","url":"https://carkeys.blackroad.io/security/${guide.slug}","author":{"@type":"Organization","name":"BlackRoad OS, Inc."},"publisher":{"@type":"Organization","name":"BlackRoad OS, Inc."}}</script><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#f5f5f5;font-family:'Space Grotesk',sans-serif}a{color:inherit}.bar{height:3px;background:linear-gradient(90deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);position:fixed;top:0;left:0;right:0;z-index:1000}nav{position:fixed;top:3px;left:0;right:0;z-index:999;background:rgba(0,0,0,.92);backdrop-filter:blur(20px);border-bottom:1px solid #1a1a1a;height:48px;display:flex;align-items:center;padding:0 24px;gap:16px}nav a{font-size:12px;color:#737373}nav a:hover{color:#f5f5f5}.container{max-width:720px;margin:0 auto;padding:80px 24px 48px}</style></head><body><div class="bar"></div><nav><a href="/" style="font-weight:700;font-size:15px;color:#f5f5f5">CarKeys</a><a href="/security" style="color:#f5f5f5">Security</a><a href="https://blackroad.io">Highway</a><a href="https://app.blackroad.io" style="padding:6px 14px;border-radius:5px;background:#f5f5f5;color:#000;font-weight:600;font-size:11px">Open OS</a></nav><div class="container"><a href="/security" style="font-size:12px;color:#737373;display:inline-block;margin-bottom:16px">&larr; All Security Guides</a><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h1 style="font-size:28px;font-weight:700">${guide.name}</h1><span style="font-size:11px;padding:3px 10px;border-radius:10px;background:${threatBg[guide.threatLevel]};color:${threatColors[guide.threatLevel]};font-family:'JetBrains Mono',monospace">threat: ${guide.threatLevel}</span><span style="font-size:11px;padding:3px 10px;border-radius:10px;background:#4488ff22;color:#4488ff">${guide.category}</span></div><p style="font-size:15px;color:#737373;line-height:1.6;margin-bottom:24px">${guide.description}</p><h2 style="font-size:16px;margin-bottom:12px">Key Points</h2><ul style="list-style:none;margin-bottom:24px">${guide.keyPoints.map(p => `<li style="padding:10px 0;font-size:14px;color:#ccc;line-height:1.5;border-bottom:1px solid #1a1a1a;padding-left:16px;position:relative"><span style="position:absolute;left:0;color:${threatColors[guide.threatLevel]}">&bull;</span>${p}</li>`).join('')}</ul><a href="https://app.blackroad.io" style="display:inline-block;margin-top:16px;padding:12px 28px;border-radius:7px;background:#f5f5f5;color:#000;font-weight:600;font-size:14px;text-decoration:none">Secure with CarKeys</a>${related.length ? `<div style="margin-top:48px;border-top:1px solid #1a1a1a;padding-top:24px"><h2 style="font-size:16px;margin-bottom:12px">Related Guides</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">${related.map(r => `<a href="/security/${r.slug}" style="display:block;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:12px;text-decoration:none"><div style="font-size:13px;font-weight:600;color:#f5f5f5;margin-bottom:4px">${r.name}</div><div style="font-size:11px;color:#737373">${r.category} &middot; ${r.threatLevel}</div></a>`).join('')}</div></div>` : ''}</div></body></html>`;
+      return new Response(guideHtml, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...SEC } });
+    }
+
+    if (path === '/auth') {
+      return new Response(renderAuthPage(), { headers: { 'Content-Type': 'text/html;charset=utf-8', ...SEC } });
     }
 
     return new Response(renderPage(), { headers: { 'Content-Type': 'text/html;charset=utf-8', ...SEC } });
@@ -3048,6 +3338,15 @@ async function ensureCKTables(db) {
       code_index INTEGER DEFAULT 1,
       status TEXT DEFAULT 'active',
       used_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      salt TEXT NOT NULL,
+      name TEXT DEFAULT '',
+      role TEXT DEFAULT 'user',
       created_at TEXT DEFAULT (datetime('now'))
     )`),
   ]);
@@ -3309,6 +3608,140 @@ function renderBlast(text, link, selected) {
     return 'setTimeout(function(){window.open("' + p.share(text, link).replace(/"/g, '\\"') + '","_blank")},' + (i * 800) + ');';
   }).join('');
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CarKeys Blast</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}:root{--g:linear-gradient(90deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);--bg:#000;--card:#0a0a0a;--border:#1a1a1a;--muted:#444;--sub:#737373;--text:#f5f5f5;--white:#fff;--sg:"Space Grotesk",sans-serif;--jb:"JetBrains Mono",monospace}body{background:var(--bg);color:var(--text);font-family:var(--sg);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 20px}.grad-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--g)}h1{font-size:28px;font-weight:700;margin:24px 0 8px}p{color:var(--sub);font-size:14px;margin-bottom:32px}.blast-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:600px}.blast-btn{display:flex;align-items:center;gap:8px;padding:12px 20px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:13px;transition:all .15s}.blast-btn:hover{border-color:#333;background:#111}.blast-icon{font-family:var(--jb);font-size:12px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#111;border:1px solid var(--border);color:var(--sub)}.footer{margin-top:auto;padding-top:48px;font-size:11px;color:var(--muted)}</style><meta property="og:title" content="CarKeys — BlackRoad OS"><meta property="og:description" content="Credential vault. Part of BlackRoad OS."><meta property="og:url" content="https://carkeys.blackroad.io"><meta property="og:image" content="https://images.blackroad.io/pixel-art/road-logo.png"><meta name="twitter:card" content="summary_large_image"><meta name="robots" content="index, follow, noai, noimageai"></head><body><div class="grad-bar"></div><h1>Blasting to ' + selected.length + ' platforms</h1><p>Click any that did not open automatically.</p><div class="blast-grid">' + buttons + '</div><script>' + scripts + '</script><div class="footer">CarKeys by BlackRoad OS, Inc. 2025-2026</div></body></html>';
+}
+
+function renderAuthPage() {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign In - CarKeys by BlackRoad OS</title><meta name="description" content="Sign in or create your CarKeys account. Secure credential management by BlackRoad OS."><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#f5f5f5;font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.bar{height:3px;background:linear-gradient(90deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);position:fixed;top:0;left:0;right:0;z-index:1000}
+.card{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:12px;padding:40px;width:100%;max-width:400px;margin:20px}
+h1{font-size:24px;font-weight:700;margin-bottom:6px;text-align:center}
+.subtitle{color:#737373;font-size:13px;text-align:center;margin-bottom:28px}
+label{display:block;font-size:12px;color:#999;margin-bottom:4px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+input{width:100%;padding:12px 14px;background:#050505;border:1px solid #222;border-radius:8px;color:#f5f5f5;font-size:14px;font-family:'Space Grotesk',sans-serif;margin-bottom:16px;outline:none;transition:border-color .2s}
+input:focus{border-color:#4488FF}
+button{width:100%;padding:14px;background:#f5f5f5;color:#000;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:opacity .2s}
+button:hover{opacity:.9}
+button:disabled{opacity:.5;cursor:not-allowed}
+.toggle{text-align:center;margin-top:20px;font-size:13px;color:#737373}
+.toggle a{color:#4488FF;cursor:pointer;text-decoration:none}
+.toggle a:hover{text-decoration:underline}
+.msg{padding:12px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.msg.error{display:block;background:#ff225522;color:#ff4466;border:1px solid #ff225533}
+.msg.success{display:block;background:#22c55e22;color:#22c55e;border:1px solid #22c55e33}
+.back{position:fixed;top:16px;left:20px;font-size:12px;color:#737373;text-decoration:none}
+.back:hover{color:#f5f5f5}
+.user-info{text-align:center;padding:20px 0}
+.user-info .email{color:#4488FF;font-family:'JetBrains Mono',monospace;font-size:14px}
+.user-info .name{font-size:20px;font-weight:700;margin-bottom:4px}
+.logout{background:transparent;border:1px solid #333;color:#999;margin-top:12px;font-size:13px;padding:10px}
+.logout:hover{border-color:#ff2255;color:#ff2255}
+</style></head><body>
+<div class="bar"></div>
+<a href="/" class="back">&larr; CarKeys</a>
+<div class="card" id="auth-card">
+  <h1 id="auth-title">Sign Up</h1>
+  <p class="subtitle" id="auth-sub">Create your CarKeys account</p>
+  <div class="msg" id="msg"></div>
+  <form id="auth-form" onsubmit="handleSubmit(event)">
+    <div id="name-field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" placeholder="Your name" autocomplete="name">
+    </div>
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" placeholder="Min 8 characters" required minlength="8" autocomplete="current-password">
+    <button type="submit" id="submit-btn">Create Account</button>
+  </form>
+  <div class="toggle" id="toggle-area">Already have an account? <a onclick="toggleMode()">Log in</a></div>
+</div>
+<div class="card" id="profile-card" style="display:none">
+  <h1>Welcome back</h1>
+  <div class="user-info">
+    <div class="name" id="profile-name"></div>
+    <div class="email" id="profile-email"></div>
+    <div style="margin-top:8px;font-size:12px;color:#737373" id="profile-since"></div>
+  </div>
+  <button class="logout" onclick="doLogout()">Sign Out</button>
+</div>
+<script>
+let mode='signup';
+const $ = id => document.getElementById(id);
+
+function toggleMode() {
+  mode = mode==='signup' ? 'login' : 'signup';
+  $('auth-title').textContent = mode==='signup' ? 'Sign Up' : 'Log In';
+  $('auth-sub').textContent = mode==='signup' ? 'Create your CarKeys account' : 'Sign in to CarKeys';
+  $('name-field').style.display = mode==='signup' ? 'block' : 'none';
+  $('submit-btn').textContent = mode==='signup' ? 'Create Account' : 'Sign In';
+  $('toggle-area').innerHTML = mode==='signup'
+    ? 'Already have an account? <a onclick="toggleMode()">Log in</a>'
+    : 'Need an account? <a onclick="toggleMode()">Sign up</a>';
+  $('msg').className = 'msg';
+  $('msg').style.display = 'none';
+}
+
+function showMsg(text, type) {
+  const el = $('msg');
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  el.style.display = 'block';
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  $('submit-btn').disabled = true;
+  $('msg').style.display = 'none';
+  const email = $('email').value.trim();
+  const password = $('password').value;
+  const name = $('name').value.trim();
+  const endpoint = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+  const body = mode === 'signup' ? {email, password, name} : {email, password};
+  try {
+    const res = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const data = await res.json();
+    if (!res.ok) { showMsg(data.error || 'Something went wrong', 'error'); $('submit-btn').disabled = false; return; }
+    localStorage.setItem('ck_token', data.token);
+    localStorage.setItem('ck_user', JSON.stringify(data.user));
+    showMsg(mode==='signup' ? 'Account created!' : 'Signed in!', 'success');
+    setTimeout(() => showProfile(data.user), 600);
+  } catch(err) { showMsg('Network error', 'error'); }
+  $('submit-btn').disabled = false;
+}
+
+function showProfile(user) {
+  $('auth-card').style.display = 'none';
+  $('profile-card').style.display = 'block';
+  $('profile-name').textContent = user.name || 'User';
+  $('profile-email').textContent = user.email;
+  $('profile-since').textContent = 'Member since ' + new Date().toLocaleDateString();
+}
+
+function doLogout() {
+  localStorage.removeItem('ck_token');
+  localStorage.removeItem('ck_user');
+  $('auth-card').style.display = 'block';
+  $('profile-card').style.display = 'none';
+  $('msg').style.display = 'none';
+  $('auth-form').reset();
+}
+
+// Auto-check for existing session
+(async function() {
+  const token = localStorage.getItem('ck_token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/auth/me', {headers:{'Authorization':'Bearer '+token}});
+    if (res.ok) {
+      const data = await res.json();
+      showProfile(data.user);
+    } else { localStorage.removeItem('ck_token'); localStorage.removeItem('ck_user'); }
+  } catch {}
+})();
+</script>
+</body></html>`;
 }
 
 function renderPage() {
@@ -4436,6 +4869,8 @@ async function checkStrength(){
     show('strengthResult',out);
   }else{show('strengthResult',JSON.stringify(d))}
 }
+window.addEventListener('message',function(e){if(e.data</script></script>e.data.type==='blackroad-os:context'){window._osUser=e.data.user;window._osToken=e.data.token;}});if(window.parent!==window)window.parent.postMessage({type:'blackroad-os:request-context'},'*');
 </script>
+<script>!function(){var b=document.createElement("div");b.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#0a0a0a;border-bottom:1px solid #1a1a1a;padding:6px 16px;display:flex;align-items:center;justify-content:space-between;font-family:sans-serif";b.innerHTML="<span style=\"font-size:11px;color:#737373\">Part of <a href=\"https://os.blackroad.io\" style=\"color:#f5f5f5;font-weight:600;text-decoration:none\">BlackRoad OS<\/a> \u2014 27 AI agents, 17 products<\/span><a href=\"https://os.blackroad.io\" style=\"font-size:10px;font-weight:600;padding:4px 12px;background:#f5f5f5;color:#000;border-radius:4px;text-decoration:none\">Try Free<\/a>";b.id="br-bar";if(!document.getElementById("br-bar")){document.body.prepend(b);document.body.style.paddingTop=(parseInt(getComputedStyle(document.body).paddingTop)||0)+32+"px"}if(!document.querySelector("[data-cta]")){var f=document.createElement("div");f.dataset.cta="1";f.style.cssText="border-top:1px solid #1a1a1a;padding:24px 16px;text-align:center;background:#0a0a0a;margin-top:32px";f.innerHTML="<div style=\"font-size:14px;font-weight:700;color:#f5f5f5;margin-bottom:6px\">BlackRoad OS<\/div><div style=\"font-size:11px;color:#737373;margin-bottom:12px\">17 products. 27 agents. Free to try.<\/div><a href=\"https://os.blackroad.io\" style=\"display:inline-block;padding:8px 24px;background:#f5f5f5;color:#000;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none\">Open BlackRoad OS<\/a>";document.body.appendChild(f)}}();</script>
 </body></html>`;
 }
