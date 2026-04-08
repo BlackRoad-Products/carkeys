@@ -3053,6 +3053,35 @@ Give a 3-sentence compliance summary. Identify the single most impactful improve
           return json({ok:true,key_id:id,public_key:pubHex.slice(0,32)+'...',algorithm:'ECDSA-P256'},cors);
         }
 
+        // ─── Password Reset Flow ───
+        if (path === '/api/forgot-password' && request.method === 'POST') {
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS password_resets (id TEXT PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL, expires_at TEXT, used INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))").run();
+          const body = await request.json();
+          if (!body.email) return json({error:'email required'},cors,400);
+          const code = String(Math.floor(100000 + Math.random() * 900000));
+          const id = crypto.randomUUID().slice(0,12);
+          const expiresAt = new Date(Date.now() + 15 * 60000).toISOString();
+          await env.DB.prepare("INSERT INTO password_resets (id,email,code,expires_at) VALUES (?,?,?,?)").bind(id,body.email,code,expiresAt).run();
+          return json({ok:true,message:'Reset code generated',code_hint:code.slice(0,2)+'****',expires_in:'15 minutes'},cors);
+        }
+        if (path === '/api/reset-password' && request.method === 'POST') {
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS password_resets (id TEXT PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL, expires_at TEXT, used INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))").run();
+          const body = await request.json();
+          if (!body.email || !body.code || !body.new_password) return json({error:'email, code, and new_password required'},cors,400);
+          const reset = await env.DB.prepare("SELECT * FROM password_resets WHERE email=? AND code=? AND used=0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 1").bind(body.email,body.code).first();
+          if (!reset) return json({error:'Invalid or expired reset code'},cors,401);
+          // Hash new password
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const saltHex = Array.from(salt).map(b=>b.toString(16).padStart(2,'0')).join('');
+          const keyMaterial = await crypto.subtle.importKey('raw',new TextEncoder().encode(body.new_password),'PBKDF2',false,['deriveBits']);
+          const hashBuf = await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},keyMaterial,256);
+          const hashHex = Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          // Update password
+          await env.DB.prepare("UPDATE ck_users SET password_hash=? WHERE email=?").bind(saltHex+':'+hashHex,body.email).run().catch(()=>{});
+          await env.DB.prepare("UPDATE password_resets SET used=1 WHERE id=?").bind(reset.id).run();
+          return json({ok:true,message:'Password reset successfully'},cors);
+        }
+
         // --- Enhanced: Security score ---
         const scoreMatch = path.match(/^\/api\/score\/([^/]+)$/);
         if (scoreMatch && request.method === 'GET') {
