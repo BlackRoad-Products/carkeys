@@ -1,5 +1,5 @@
 name = "carkeys-blackroad"
-main = "src/index.ts"
+main = "src/worker.js"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 [[routes]]
@@ -12,6 +12,8 @@ VERSION = "2.0.0"
 [[kv_namespaces]]
 binding = "STORE"
 id = "2595480dbcad44ffa7cdf2e1fdbff3f2"
+[ai]
+binding = "AI"
 [[d1_databases]]
 binding = "DB"
 database_name = "blackroad-os-main"
