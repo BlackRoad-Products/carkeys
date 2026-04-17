@@ -1,399 +1,1257 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CarKeys — The Vault — BlackRoad OS</title>
-<meta name="description" content="Celeste secures the vault. Your credentials never leave CarKeys without your explicit permission.">
-<meta property="og:title" content="CarKeys — BlackRoad OS">
-<meta property="og:description" content="Celeste secures the vault. Your credentials never leave CarKeys without your explicit permission.">
-<meta property="og:url" content="https://carkeys.blackroad.io">
-<meta property="og:type" content="website">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--g:linear-gradient(90deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);--g135:linear-gradient(135deg,#FF6B2B,#FF2255,#CC00AA,#8844FF,#4488FF,#00D4FF);--bg:#000;--card:#0a0a0a;--elevated:#111;--hover:#181818;--border:#1a1a1a;--muted:#444;--sub:#737373;--text:#f5f5f5;--white:#fff;--sg:'Space Grotesk',sans-serif;--jb:'JetBrains Mono',monospace}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:var(--sg);line-height:1.6;overflow-x:hidden}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#000}::-webkit-scrollbar-thumb{background:#1a1a1a;border-radius:2px}
-a{color:var(--text);text-decoration:none}
-button{font-family:var(--sg);cursor:pointer}
-img{max-width:100%}
-.grad-bar{height:3px;background:var(--g)}
-.container{max-width:1000px;width:100%;margin:0 auto;padding:0 24px}
-.section{padding:72px 0}
-.section-num{font-family:var(--jb);font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
-.section-title{font-weight:700;font-size:28px;color:var(--white);margin-bottom:8px}
-.section-desc{font-size:14px;color:var(--sub);max-width:460px;line-height:1.7}
-.divider{height:1px;background:var(--border)}
-nav{position:fixed;top:3px;left:0;right:0;z-index:100;padding:0 24px}
-.nav-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(0,0,0,.9);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:10px}
-.nav-logo{font-weight:700;font-size:16px;color:var(--white);display:flex;align-items:center;gap:10px}
-.nav-logo-bar{width:20px;height:3px;border-radius:2px;background:var(--g)}
-.nav-links{display:flex;gap:24px}
-.nav-links a{font-size:12px;font-weight:500;color:var(--sub);transition:color .15s}
-.nav-links a:hover{color:var(--white)}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:6px;font-weight:600;font-size:12px;border:none;transition:all .15s}
-.btn-white{background:var(--white);color:#000}
-.btn-white:hover{background:#e0e0e0}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
-.btn-outline:hover{border-color:#444}
-.btn-lg{padding:13px 32px;font-size:14px;border-radius:8px}
-.hero{min-height:92vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;position:relative}
-.hero-tag{font-family:var(--jb);font-size:10px;color:var(--sub);letter-spacing:.15em;text-transform:uppercase;margin-bottom:28px;display:flex;align-items:center;gap:8px}
-.hero-dot{width:5px;height:5px;border-radius:50%;background:var(--white);animation:pulse 2.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.hero-title{font-size:clamp(44px,8vw,84px);font-weight:700;line-height:.92;color:var(--white);letter-spacing:-.04em;margin-bottom:20px}
-.hero-sub{font-size:clamp(14px,1.8vw,17px);color:var(--sub);max-width:500px;margin:0 auto 40px;line-height:1.7}
-.hero-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-.hero-stats{display:flex;gap:48px;margin-top:72px;flex-wrap:wrap;justify-content:center}
-.hero-stat{text-align:center}
-.hero-stat-n{font-size:26px;font-weight:700;color:var(--white);font-family:var(--jb)}
-.hero-stat-l{font-size:9px;color:var(--muted);font-family:var(--jb);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
-.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:36px}
-.feat{background:var(--card);padding:24px;transition:background .15s}
-.feat:hover{background:var(--elevated)}
-.feat-icon{font-size:20px;margin-bottom:12px}
-.feat-title{font-weight:600;font-size:14px;color:var(--white);margin-bottom:6px}
-.feat-text{font-size:12px;color:var(--sub);line-height:1.7}
-.agent-section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:28px;margin-top:36px;display:flex;gap:24px;align-items:flex-start}
-.agent-avatar{width:56px;height:56px;border-radius:50%;background:var(--g135);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#000;flex-shrink:0;font-family:var(--sg)}
-.agent-info{flex:1}
-.agent-name-lg{font-size:18px;font-weight:700;color:var(--white);margin-bottom:3px}
-.agent-role-lg{font-family:var(--jb);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.agent-bio{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:14px}
-.agent-status{display:flex;align-items:center;gap:7px;font-family:var(--jb);font-size:10px;color:var(--muted)}
-.status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
-.status-dot.on{background:#22d3ee}
-.steps-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:36px}
-.step{background:var(--card);padding:28px 24px}
-.step-n{font-family:var(--jb);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.step-title{font-weight:600;font-size:15px;color:var(--white);margin-bottom:8px}
-.step-text{font-size:12px;color:var(--sub);line-height:1.7}
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:36px}
-.price-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:28px 22px;text-align:center}
-.price-card.featured{border-color:#222}
-.price-grad{height:3px;background:var(--g);margin:-28px -22px 24px;border-radius:10px 10px 0 0}
-.price-name{font-family:var(--jb);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
-.price-val{font-size:36px;font-weight:700;color:var(--white);line-height:1}
-.price-period{font-size:11px;color:var(--muted);margin-bottom:20px;margin-top:3px}
-.price-list{list-style:none;text-align:left;margin-bottom:24px}
-.price-list li{font-size:12px;color:var(--sub);padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
-.price-list li:last-child{border-bottom:none}
-.price-check{width:12px;height:2px;border-radius:1px;background:var(--g);flex-shrink:0}
-.connected-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-top:28px}
-.connected{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:border-color .15s;display:block}
-.connected:hover{border-color:#333}
-.connected-name{font-weight:600;font-size:13px;color:var(--white);margin-bottom:3px}
-.connected-line{font-size:11px;color:var(--sub)}
-.connected-url{font-family:var(--jb);font-size:9px;color:var(--muted);margin-top:8px}
-footer{border-top:1px solid var(--border);padding:40px 0}
-.footer-inner{max-width:1000px;margin:0 auto;padding:0 24px}
-.footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;margin-bottom:32px}
-.footer-brand{font-weight:700;font-size:15px;color:var(--white);margin-bottom:6px;display:flex;align-items:center;gap:8px}
-.footer-brand-bar{width:16px;height:3px;border-radius:2px;background:var(--g)}
-.footer-tagline{font-family:var(--jb);font-size:9px;color:var(--muted);letter-spacing:.1em}
-.footer-col h4{font-family:var(--jb);font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
-.footer-col a{display:block;font-size:12px;color:var(--sub);padding:3px 0;transition:color .15s}
-.footer-col a:hover{color:var(--white)}
-.footer-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:20px;border-top:1px solid var(--border);flex-wrap:wrap;gap:12px}
-.footer-copy{font-family:var(--jb);font-size:9px;color:var(--muted)}
-#br-chat-fab{position:fixed;bottom:24px;right:24px;z-index:9999;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#FF6B2B,#FF2255,#CC00AA,#8844FF);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(255,107,43,.4);transition:transform .2s}
-#br-chat-fab:hover{transform:scale(1.1)}
-#br-chat-fab svg{width:22px;height:22px;fill:#fff}
-#br-chat-panel{position:fixed;bottom:88px;right:24px;z-index:9998;width:330px;max-height:500px;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.8);overflow:hidden}
-#br-chat-panel.open{display:flex}
-#br-chat-head{padding:12px 14px;background:#111;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:10px}
-#br-chat-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#FF6B2B,#8844FF);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;flex-shrink:0}
-#br-chat-info{flex:1;min-width:0}
-#br-chat-nm{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:#f5f5f5}
-#br-chat-rl{font-family:'JetBrains Mono',monospace;font-size:9px;color:#737373;margin-top:1px}
-#br-chat-st{display:flex;align-items:center;gap:5px;margin-top:2px}
-.br-sdot{width:6px;height:6px;border-radius:50%;background:#444}
-.br-sdot.on{background:#22d3ee}
-#br-chat-sl{font-size:9px;color:#737373;font-family:'JetBrains Mono',monospace}
-#br-chat-x{background:none;border:none;color:#737373;font-size:16px;cursor:pointer;padding:0}
-#br-chat-msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:180px}
-#br-chat-msgs::-webkit-scrollbar{width:3px}
-#br-chat-msgs::-webkit-scrollbar-thumb{background:#1a1a1a;border-radius:2px}
-.br-msg{max-width:85%;padding:7px 11px;border-radius:10px;font-size:12px;line-height:1.5;font-family:'Space Grotesk',sans-serif}
-.br-msg.user{align-self:flex-end;background:linear-gradient(135deg,rgba(255,107,43,.15),rgba(136,68,255,.15));border:1px solid rgba(136,68,255,.3);color:#f5f5f5}
-.br-msg.agent{align-self:flex-start;background:#111;border:1px solid #1a1a1a;color:#d4d4d4}
-.br-msg.think{align-self:flex-start;background:#0a0a0a;border:1px solid #1a1a1a;color:#444;font-style:italic;font-family:'JetBrains Mono',monospace;font-size:10px}
-#br-chat-intro{padding:8px 10px;font-size:11px;color:#737373;font-family:'JetBrains Mono',monospace;text-align:center;line-height:1.5}
-#br-chat-row{padding:8px 10px;background:#111;border-top:1px solid #1a1a1a;display:flex;gap:7px}
-#br-chat-in{flex:1;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:7px;padding:7px 10px;font-size:12px;color:#f5f5f5;font-family:'Space Grotesk',sans-serif;outline:none;resize:none;height:36px;line-height:1.4}
-#br-chat-in:focus{border-color:rgba(136,68,255,.4)}
-#br-chat-go{background:linear-gradient(135deg,#FF2255,#8844FF);border:none;border-radius:7px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-#br-chat-go svg{width:14px;height:14px;fill:#fff}
-@media(max-width:768px){.nav-links{display:none}.hero{padding:100px 16px 60px}.hero-stats{gap:24px}.pricing-grid{grid-template-columns:1fr}.steps-row{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr;gap:24px}.feat-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.feat-grid{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr}}
-</style>
+<head><style id="br-grayscale">:root{--bg:#000!important;--card:#080808!important;--border:#191919!important;--text:#d4d4d4!important;--muted:#777!important;--dim:#3a3a3a!important;--pink:#888!important;--amber:#999!important;--blue:#777!important;--violet:#666!important;--green:#999!important;--primary:#999!important;--secondary:#777!important;--accent:#aaa!important}html,body{background:#000!important;color:#d4d4d4!important}*{border-color:#191919!important}a{color:#bbb!important}a:hover{color:#fff!important}button,input,select,textarea{background:#0a0a0a!important;color:#d4d4d4!important;border-color:#333!important}h1,h2,h3,h4,h5,h6{color:#e0e0e0!important}iframe,img,video,canvas{filter:none!important}svg:not(iframe svg){filter:grayscale(1)!important}[class*="dot"],[class*="badge"]{filter:grayscale(1)!important}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CarKeys — Vault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="mockup-base.css">
+  <style>
+    /* ── Page shell ─────────────────────────────────────────── */
+    body {
+      font-family: var(--sg);
+      background: #0a0a0a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    /* ── macOS window chrome ────────────────────────────────── */
+    .macos-window {
+      width: 1200px;
+      max-width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1a1a1a;
+      box-shadow: 0 32px 80px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.04);
+    }
+
+    .macos-titlebar {
+      background: #111;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      border-bottom: 1px solid #1a1a1a;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .macos-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .macos-dot.red    { background: #FF5F57; box-shadow: 0 0 0 1px rgba(0,0,0,.25) inset; }
+    .macos-dot.yellow { background: #FEBC2E; box-shadow: 0 0 0 1px rgba(0,0,0,.25) inset; }
+    .macos-dot.green  { background: #28C840; box-shadow: 0 0 0 1px rgba(0,0,0,.25) inset; }
+
+    .macos-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--sg);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--sub);
+      letter-spacing: .01em;
+    }
+
+    /* ── Top gradient bar (3px) ─────────────────────────────── */
+    .gradient-bar {
+      height: 3px;
+      background: var(--g);
+      flex-shrink: 0;
+    }
+
+    /* ── App layout ─────────────────────────────────────────── */
+    .app-shell {
+      display: flex;
+      background: var(--bg);
+      height: 760px;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo {
+      padding: 20px 18px 16px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      padding: 1px;
+      background: var(--g);
+      flex-shrink: 0;
+    }
+
+    .logo-icon-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      line-height: 1;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .logo-name {
+      font-size: 15px;
+      font-weight: 700;
+      background: var(--g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -.01em;
+    }
+    .logo-tagline {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      font-family: var(--jb);
+    }
+
+    /* Nav */
+    .sidebar-nav {
+      padding: 10px 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 8px 8px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--sub);
+      transition: background .15s, color .15s;
+      position: relative;
+    }
+    .nav-item:hover { background: var(--elevated); color: var(--text); }
+    .nav-item.active {
+      background: var(--elevated);
+      color: var(--white);
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+      background: var(--g);
+    }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+    .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-family: var(--jb);
+      background: rgba(255,34,85,.15);
+      color: var(--sub);
+      border: 1px solid rgba(255,34,85,.3);
+      padding: 1px 6px;
+      border-radius: 16px;
+    }
+
+    /* Security Score widget */
+    .score-widget {
+      margin: 10px;
+      padding: 16px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .score-label {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .score-ring-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .score-ring {
+      width: 62px;
+      height: 62px;
+      flex-shrink: 0;
+    }
+    .score-info { flex: 1; }
+    .score-number {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1;
+      font-family: var(--sg);
+    }
+    .score-grade {
+      font-size: 13px;
+      font-family: var(--jb);
+      color: var(--sub);
+      margin-top: 3px;
+    }
+    .score-grade span {
+      font-size: 18px;
+      font-weight: 700;
+      background: var(--g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .score-bar-row {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .score-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--sub);
+    }
+    .score-bar-track {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 16px;
+      background: var(--g);
+    }
+
+    /* ── Main panel ─────────────────────────────────────────── */
+    .main-panel {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    /* Topbar */
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--sub);
+    }
+    .topbar-left span { color: var(--text); font-weight: 600; }
+    .topbar-sep { color: var(--muted); }
+
+    .valeria-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: var(--jb);
+      color: var(--sub);
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 16px;
+    }
+    .valeria-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #28C840;
+      box-shadow: 0 0 6px rgba(40,200,64,.6);
+      animation: pulse-green 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse-green {
+      0%,100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    .valeria-name {
+      background: var(--g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 600;
+    }
+
+    /* Content area */
+    .content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Section header ───────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -.01em;
+    }
+    .section-badge {
+      font-size: 11px;
+      font-family: var(--jb);
+      color: var(--sub);
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      padding: 2px 9px;
+      border-radius: 16px;
+    }
+    .section-action {
+      font-size: 12.5px;
+      font-weight: 600;
+      background: var(--g);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background-clip: text;
+    }
+
+    /* ── Vault keypair cards ──────────────────────────────── */
+    .vault-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .keypair-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .keypair-card:hover { border-color: #2a2a2a; }
+
+    .keypair-card.primary::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--g);
+    }
+
+    .keypair-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .keypair-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -.01em;
+    }
+    .keypair-type {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .keypair-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-family: var(--jb);
+      color: var(--sub);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.active { background: #28C840; box-shadow: 0 0 5px rgba(40,200,64,.5); }
+    .status-dot.rotating {
+      background: #00D4FF;
+      box-shadow: 0 0 5px rgba(0,212,255,.5);
+      animation: pulse-blue 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-blue {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(1.4); }
+    }
+
+    .keypair-id {
+      font-family: var(--jb);
+      font-size: 12px;
+      color: var(--sub);
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 9px;
+      margin-bottom: 12px;
+      letter-spacing: .04em;
+    }
+
+    .keypair-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .meta-value {
+      font-size: 12px;
+      color: var(--sub);
+      font-family: var(--jb);
+    }
+
+    .strength-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+    .strength-label {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+    }
+    .strength-track {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .strength-fill {
+      height: 100%;
+      border-radius: 16px;
+      background: var(--g);
+    }
+    .strength-pct {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--sub);
+    }
+
+    .keypair-actions {
+      display: flex;
+      gap: 7px;
+    }
+    .btn-outline {
+      font-family: var(--jb);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--sub);
+      cursor: pointer;
+      letter-spacing: .03em;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .btn-outline:hover {
+      border-color: #2a2a2a;
+      background: var(--elevated);
+      color: var(--text);
+    }
+    .btn-outline.primary {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(var(--card), var(--card)) padding-box,
+        var(--g) border-box;
+      color: var(--text);
+    }
+    .btn-outline.primary:hover {
+      background:
+        linear-gradient(var(--elevated), var(--elevated)) padding-box,
+        var(--g) border-box;
+    }
+
+    /* ── Sessions section ────────────────────────────────── */
+    .sessions-table {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .sessions-thead {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.4fr 1fr;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--elevated);
+    }
+    .th {
+      font-size: 10px;
+      font-family: var(--jb);
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .session-row {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.4fr 1fr;
+      align-items: center;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      transition: background .15s;
+    }
+    .session-row:last-child { border-bottom: none; }
+    .session-row:hover { background: rgba(255,255,255,.025); }
+
+    .session-row.current {
+      background: rgba(255,255,255,.02);
+    }
+    .session-row.current::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--g);
+    }
+
+    .session-row.suspicious {
+      border-left: 3px solid rgba(255,107,43,.3);
+    }
+    .session-row.suspicious:hover { background: rgba(255,107,43,.04); }
+
+    .session-device {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .device-icon {
+      font-size: 18px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .session-suspicious .device-icon {
+      border-color: rgba(255,107,43,.3);
+      background: rgba(255,107,43,.05);
+    }
+    .device-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .device-tag {
+      font-size: 10px;
+      font-family: var(--jb);
+      padding: 1px 7px;
+      border-radius: 16px;
+    }
+    .device-tag.current-tag {
+      background: rgba(0,212,255,.1);
+      color: var(--text);
+      border: 1px solid rgba(0,212,255,.2);
+    }
+    .device-tag.suspicious-tag {
+      background: rgba(255,107,43,.1);
+      color: var(--text);
+      border: 1px solid rgba(255,107,43,.3);
+    }
+
+    .session-location {
+      font-size: 12.5px;
+      color: var(--sub);
+      font-family: var(--jb);
+    }
+    .session-last-active {
+      font-size: 12px;
+      color: var(--sub);
+      font-family: var(--jb);
+    }
+
+    .btn-revoke {
+      font-family: var(--jb);
+      font-size: 11px;
+      padding: 4px 11px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,34,85,.2);
+      background: rgba(255,34,85,.06);
+      color: var(--sub);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-revoke:hover {
+      background: rgba(255,34,85,.14);
+      border-color: rgba(255,34,85,.4);
+    }
+    .btn-revoke.disabled {
+      opacity: .3;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    /* ── Audit log section ───────────────────────────────── */
+    .audit-feed {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .audit-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 13px;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    .audit-entry:last-child { border-bottom: none; }
+    .audit-entry:hover { background: rgba(255,255,255,.02); }
+
+    .audit-time {
+      font-family: var(--jb);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 1px;
+      min-width: 80px;
+    }
+
+    .audit-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .audit-body { flex: 1; }
+    .audit-event-type {
+      font-family: var(--jb);
+      font-size: 10px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .audit-event-type.rotate { color: var(--sub); }
+    .audit-event-type.session { color: var(--text); }
+    .audit-event-type.login { color: var(--text); }
+    .audit-event-type.export { color: var(--text); }
+    .audit-event-type.alert { color: var(--text); }
+
+    .audit-desc {
+      font-size: 12.5px;
+      color: var(--sub);
+    }
+    .audit-desc strong { color: var(--text); font-weight: 600; }
+
+    /* ── Scrollbar styling ───────────────────────────────── */
+    .main-panel::-webkit-scrollbar { width: 6px; }
+    .main-panel::-webkit-scrollbar-track { background: transparent; }
+    .main-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 16px; }
+    .main-panel::-webkit-scrollbar-thumb:hover { background: #2a2a2a; }
+  </style>
 </head>
 <body>
 
-<div class="grad-bar"></div>
+<div class="macos-window">
 
-<!-- NAV -->
-<nav>
-<div class="nav-inner">
-  <a href="https://blackroad.io" class="nav-logo"><span class="nav-logo-bar"></span>BlackRoad</a>
-  <div class="nav-links">
-    <a href="https://os.blackroad.io">OS</a>
-    <a href="https://roadtrip.blackroad.io">Agents</a>
-    <a href="https://roadie.blackroad.io">Tutor</a>
-    <a href="https://roadwork.blackroad.io">Work</a>
-    <a href="https://highway.blackroad.io">Dashboard</a>
-    <a href="#pricing">Pricing</a>
+  <!-- macOS title bar -->
+  <div class="macos-titlebar">
+    <div class="macos-dot red"></div>
+    <div class="macos-dot yellow"></div>
+    <div class="macos-dot green"></div>
+    <div class="macos-title">CarKeys — Vault</div>
   </div>
-  <a href="https://carkeys.blackroad.io"><button class="btn btn-white">Open CarKeys</button></a>
-</div>
-</nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-tag"><span class="hero-dot"></span>Sovereign Credential Vault</div>
-  <h1 class="hero-title">CarKeys</h1>
-  <p class="hero-sub">Celeste secures the vault. Your credentials never leave CarKeys without your explicit permission.</p>
-  <div class="hero-actions">
-    <a href="https://carkeys.blackroad.io"><button class="btn btn-white btn-lg">Open CarKeys</button></a>
-    <a href="https://pay.blackroad.io"><button class="btn btn-outline btn-lg">Go Pro — $19/mo</button></a>
-  </div>
-  <div class="hero-stats">
-    <div class="hero-stat"><div class="hero-stat-n">0</div><div class="hero-stat-l">Leaks</div></div>
-    <div class="hero-stat"><div class="hero-stat-n">∞</div><div class="hero-stat-l">Credentials</div></div>
-    <div class="hero-stat"><div class="hero-stat-n">1</div><div class="hero-stat-l">Vault</div></div>
-    <div class="hero-stat"><div class="hero-stat-n">E2E</div><div class="hero-stat-l">Encrypted</div></div>
-  </div>
-</section>
+  <!-- 3px gradient bar -->
+  <div class="gradient-bar"></div>
 
-<div class="divider"></div>
+  <!-- App shell: sidebar + main -->
+  <div class="app-shell">
 
-<!-- FEATURES -->
-<section class="section" id="features">
-<div class="container">
-  <div class="section-num">01 — Features</div>
-  <div class="section-title">Built Different</div>
-  <div class="section-desc">Every feature in CarKeys is designed for sovereignty, continuity, and speed.</div>
-  <div class="feat-grid">
-    <div class="feat"><div class="feat-icon">🔐</div><div class="feat-title">End-to-End Encrypted</div><div class="feat-text">Every credential is encrypted before it leaves your device. CarKeys never sees your secrets.</div></div>
-    <div class="feat"><div class="feat-icon">🤖</div><div class="feat-title">Celeste Guards</div><div class="feat-text">Celeste monitors access patterns and flags anomalies. Your vault has a vigilant watcher.</div></div>
-    <div class="feat"><div class="feat-icon">🔗</div><div class="feat-title">Cross-Product Auth</div><div class="feat-text">One CarKeys identity authenticates you across all 18 BlackRoad products. Sovereign SSO.</div></div>
-    <div class="feat"><div class="feat-icon">📋</div><div class="feat-title">Audit Log</div><div class="feat-text">Every access is logged to RoadChain. Atticus audits. Nothing happens in the vault without a trace.</div></div>
-  </div>
-</div>
-</section>
+    <!-- ── Sidebar ──────────────────────────────────────── -->
+    <aside class="sidebar">
 
-<div class="divider"></div>
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <div class="logo-icon-wrap">
+          <div class="logo-icon-inner">🔑</div>
+        </div>
+        <div class="logo-text">
+          <div class="logo-name">CarKeys</div>
+          <div class="logo-tagline">Security Vault</div>
+        </div>
+      </div>
 
-<!-- AGENT -->
-<section class="section" id="agent">
-<div class="container">
-  <div class="section-num">02 — Your Agent</div>
-  <div class="section-title">Meet Celeste</div>
-  <div class="section-desc">Celeste is your dedicated CarKeys agent — always online, always remembering.</div>
-  <div class="agent-section">
-    <div class="agent-avatar">C</div>
-    <div class="agent-info">
-      <div class="agent-name-lg">Celeste</div>
-      <div class="agent-role-lg">Security / Motivator</div>
-      <div class="agent-bio">Celeste. I secure the vault, inspire the team, and make sure CarKeys is the most trusted credential store in your stack. Security with a heartbeat.</div>
-      <div class="agent-status"><span class="status-dot" id="agent-sdot"></span><span id="agent-slabel">checking status...</span></div>
-    </div>
-  </div>
-</div>
-</section>
+      <!-- Nav -->
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Main</div>
+        <div class="nav-item active">
+          <span class="nav-icon">🏛️</span>
+          Vault
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🗝️</span>
+          Keys
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">💻</span>
+          Sessions
+          <span class="nav-badge">1 alert</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">📋</span>
+          Audit Log
+        </div>
 
-<div class="divider"></div>
+        <div class="nav-section-label" style="margin-top:6px;">Security</div>
+        <div class="nav-item">
+          <span class="nav-icon">🛡️</span>
+          Security Score
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🤖</span>
+          Agents
+        </div>
 
-<!-- HOW IT WORKS -->
-<section class="section" id="how">
-<div class="container">
-  <div class="section-num">03 — How It Works</div>
-  <div class="section-title">Three Steps</div>
-  <div class="section-desc">No onboarding. No tutorials. CarKeys works the way you think.</div>
-  <div class="steps-row">
-    <div class="step"><div class="step-n">01 — Store</div><div class="step-title">Add a Secret</div><div class="step-text">Paste any credential. CarKeys encrypts it immediately, before any network call is made.</div></div>
-    <div class="step"><div class="step-n">02 — Access</div><div class="step-title">Authorized Only</div><div class="step-text">Celeste verifies every access request. Wrong context? Wrong device? Blocked, logged, flagged.</div></div>
-    <div class="step"><div class="step-n">03 — Audit</div><div class="step-title">Read the Trail</div><div class="step-text">Every access appears in your RoadChain log. Atticus audits. The vault is always accountable.</div></div>
-  </div>
-</div>
-</section>
+        <div class="nav-section-label" style="margin-top:6px;">Config</div>
+        <div class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          Settings
+        </div>
+      </nav>
 
-<div class="divider"></div>
+      <!-- Security Score widget -->
+      <div class="score-widget">
+        <div class="score-label">Security Score</div>
+        <div class="score-ring-wrap">
 
-<!-- PRICING -->
-<section class="section" id="pricing">
-<div class="container">
-  <div class="section-num">04 — Pricing</div>
-  <div class="section-title">Join the Road</div>
-  <div class="section-desc">Start free. Go Pro when you're ready. Enterprise for teams who need everything.</div>
-  <div class="pricing-grid">
-<div class="price-card">
-  <div class="price-name">Free</div>
-  <div class="price-val">$0</div>
-  <div class="price-period">forever</div>
-  <ul class="price-list">
-    <li><span class="price-check"></span>Core access</li>
-    <li><span class="price-check"></span>Basic agent chat</li>
-    <li><span class="price-check"></span>Community support</li>
-    <li><span class="price-check"></span>Public data only</li>
-  </ul>
-  <a href="https://carkeys.blackroad.io"><button class="btn btn-outline" style="width:100%">Get Started</button></a>
-</div>
-<div class="price-card featured">
-  <div class="price-grad"></div>
-  <div class="price-name">Pro</div>
-  <div class="price-val">$19</div>
-  <div class="price-period">per month</div>
-  <ul class="price-list">
-    <li><span class="price-check"></span>Unlimited access</li>
-    <li><span class="price-check"></span>All 27 agents</li>
-    <li><span class="price-check"></span>Persistent memory</li>
-    <li><span class="price-check"></span>Priority routing</li>
-    <li><span class="price-check"></span>RoadCoin rewards</li>
-  </ul>
-  <a href="https://pay.blackroad.io"><button class="btn btn-white" style="width:100%">Go Pro</button></a>
-</div>
-<div class="price-card">
-  <div class="price-name">Enterprise</div>
-  <div class="price-val">$99</div>
-  <div class="price-period">per month</div>
-  <ul class="price-list">
-    <li><span class="price-check"></span>Everything in Pro</li>
-    <li><span class="price-check"></span>Custom agents</li>
-    <li><span class="price-check"></span>Private Pi fleet</li>
-    <li><span class="price-check"></span>SLA + audit logs</li>
-    <li><span class="price-check"></span>White label</li>
-  </ul>
-  <a href="mailto:alexa@blackroad.io"><button class="btn btn-outline" style="width:100%">Contact Us</button></a>
-</div>
-  </div>
-</div>
-</section>
+          <!-- SVG circular progress ring (gradient stroke) -->
+          <svg class="score-ring" viewBox="0 0 62 62">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="#FF6B2B"/>
+                <stop offset="20%"  stop-color="#FF2255"/>
+                <stop offset="40%"  stop-color="#CC00AA"/>
+                <stop offset="60%"  stop-color="#8844FF"/>
+                <stop offset="80%"  stop-color="#4488FF"/>
+                <stop offset="100%" stop-color="#00D4FF"/>
+              </linearGradient>
+            </defs>
+            <!-- Track -->
+            <circle cx="31" cy="31" r="25"
+              fill="none"
+              stroke="#1a1a1a"
+              stroke-width="5"
+            />
+            <!-- Fill: 94% of circumference = 2π×25 ≈ 157.1 → 94% ≈ 147.7 -->
+            <circle cx="31" cy="31" r="25"
+              fill="none"
+              stroke="url(#ringGrad)"
+              stroke-width="5"
+              stroke-linecap="round"
+              stroke-dasharray="147.7 157.1"
+              transform="rotate(-90 31 31)"
+            />
+          </svg>
 
-<div class="divider"></div>
+          <div class="score-info">
+            <div class="score-number">94</div>
+            <div class="score-grade">Grade <span>A</span></div>
+          </div>
+        </div>
 
-<!-- CONNECTED -->
-<section class="section" id="connected">
-<div class="container">
-  <div class="section-num">05 — Connected Products</div>
-  <div class="section-title">Rides the Highway</div>
-  <div class="section-desc">CarKeys connects natively with every product on the BlackRoad highway.</div>
-  <div class="connected-grid">
-    <a href="https://roadchain.blackroad.io" class="connected"><div class="connected-name">RoadChain</div><div class="connected-line">The ledger</div><div class="connected-url">roadchain.blackroad.io</div></a>
-    <a href="https://os.blackroad.io" class="connected"><div class="connected-name">BlackRoad OS</div><div class="connected-line">The desktop</div><div class="connected-url">os.blackroad.io</div></a>
-    <a href="https://roadwork.blackroad.io" class="connected"><div class="connected-name">RoadWork</div><div class="connected-line">Business ops</div><div class="connected-url">roadwork.blackroad.io</div></a>
-    <a href="https://roadtrip.blackroad.io" class="connected"><div class="connected-name">RoadTrip</div><div class="connected-line">Convoy chat</div><div class="connected-url">roadtrip.blackroad.io</div></a>
-  </div>
-</div>
-</section>
+        <div class="score-bar-row">
+          <div class="score-bar-item">
+            <span style="min-width:50px">Keys</span>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" style="width:98%"></div>
+            </div>
+            <span>98</span>
+          </div>
+          <div class="score-bar-item">
+            <span style="min-width:50px">Sessions</span>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" style="width:81%"></div>
+            </div>
+            <span>81</span>
+          </div>
+          <div class="score-bar-item">
+            <span style="min-width:50px">Access</span>
+            <div class="score-bar-track">
+              <div class="score-bar-fill" style="width:96%"></div>
+            </div>
+            <span>96</span>
+          </div>
+        </div>
+      </div>
 
-<div class="grad-bar"></div>
-<footer>
-<div class="footer-inner">
-  <div class="footer-grid">
-    <div>
-      <div class="footer-brand"><span class="footer-brand-bar"></span>BlackRoad OS</div>
-      <div class="footer-tagline">REMEMBER THE ROAD. PAVE TOMORROW.</div>
-    </div>
-    <div class="footer-col">
-      <h4>Products</h4>
-      <a href="https://os.blackroad.io">BlackRoad OS</a>
-      <a href="https://roadtrip.blackroad.io">RoadTrip</a>
-      <a href="https://roadie.blackroad.io">Roadie</a>
-      <a href="https://roadview.blackroad.io">RoadView</a>
-      <a href="https://roadwork.blackroad.io">RoadWork</a>
-      <a href="https://roadcode.blackroad.io">RoadCode</a>
-    </div>
-    <div class="footer-col">
-      <h4>More</h4>
-      <a href="https://backroad.blackroad.io">BackRoad</a>
-      <a href="https://roadbook.blackroad.io">RoadBook</a>
-      <a href="https://roadworld.blackroad.io">RoadWorld</a>
-      <a href="https://carkeys.blackroad.io">CarKeys</a>
-      <a href="https://roadcoin.blackroad.io">RoadCoin</a>
-      <a href="https://highway.blackroad.io">Highway</a>
-    </div>
-    <div class="footer-col">
-      <h4>Company</h4>
-      <a href="https://pay.blackroad.io">Pricing</a>
-      <a href="https://github.com/BlackRoadOS">GitHub</a>
-      <a href="https://huggingface.co/BlackRoad-OS">HuggingFace</a>
-      <a href="https://roadside.blackroad.io">Support</a>
-      <a href="mailto:alexa@blackroad.io">Contact</a>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <div class="footer-copy">&copy; 2026 BlackRoad OS, Inc. Delaware C-Corp. All rights reserved.</div>
-  </div>
-</div>
-</footer>
+    </aside>
 
-<!-- Agent status check -->
-<script>
-(function(){
-  var dot=document.getElementById('agent-sdot');
-  var lbl=document.getElementById('agent-slabel');
-  if(!dot||!lbl)return;
-  fetch('https://roadtrip.blackroad.io/api/agents',{mode:'cors'})
-    .then(function(r){return r.json()})
-    .then(function(agents){
-      var a=agents.find(function(x){return x.id==='celeste'});
-      if(a&&a.online){dot.className='status-dot on';lbl.textContent='online — Celeste is ready'}
-      else{dot.className='status-dot';lbl.textContent='available — Celeste responds to messages'}
-    }).catch(function(){lbl.textContent='available'});
-})();
-</script>
+    <!-- ── Main panel ────────────────────────────────────── -->
+    <main class="main-panel">
 
+      <!-- Topbar -->
+      <div class="topbar">
+        <div class="topbar-left">
+          CarKeys
+          <span class="topbar-sep">/</span>
+          <span>Vault</span>
+        </div>
+        <div class="valeria-status">
+          <div class="valeria-dot"></div>
+          <span class="valeria-name">Valeria</span>
+          <span>is watching · Last scan 2m ago</span>
+        </div>
+      </div>
 
-<button id="br-chat-fab" title="Chat with Celeste">
-  <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 10H6v-2h12v2zm0-3H6V7h12v2z"/></svg>
-</button>
-<div id="br-chat-panel">
-  <div id="br-chat-head">
-    <div id="br-chat-av">C</div>
-    <div id="br-chat-info">
-      <div id="br-chat-nm">Celeste</div>
-      <div id="br-chat-rl">Security / Motivator</div>
-      <div id="br-chat-st"><span class="br-sdot" id="br-sdot"></span><span id="br-chat-sl">checking...</span></div>
-    </div>
-    <button id="br-chat-x">✕</button>
-  </div>
-  <div id="br-chat-msgs"><div id="br-chat-intro">Chat with Celeste — BlackRoad AI</div></div>
-  <div id="br-chat-row">
-    <textarea id="br-chat-in" placeholder="Ask Celeste..." rows="1"></textarea>
-    <button id="br-chat-go"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-  </div>
-</div>
-<script>
-(function(){
-  var ID='celeste',NAME='Celeste',API='https://roadtrip.blackroad.io/api';
-  var fab=document.getElementById('br-chat-fab'),panel=document.getElementById('br-chat-panel');
-  var closeBtn=document.getElementById('br-chat-x'),msgs=document.getElementById('br-chat-msgs');
-  var inp=document.getElementById('br-chat-in'),go=document.getElementById('br-chat-go');
-  var sdot=document.getElementById('br-sdot'),sl=document.getElementById('br-chat-sl');
-  var open=false;
-  fab.addEventListener('click',function(){open=!open;panel.className=open?'open':''});
-  closeBtn.addEventListener('click',function(){open=false;panel.className=''});
-  fetch(API+'/agents',{mode:'cors'}).then(function(r){return r.json()}).then(function(a){
-    var ag=a.find(function(x){return x.id===ID});
-    if(ag&&ag.online){sdot.className='br-sdot on';sl.textContent='online'}else{sdot.className='br-sdot';sl.textContent='available'}
-  }).catch(function(){sl.textContent='available'});
-  function addMsg(t,c){var d=document.createElement('div');d.className='br-msg '+c;d.textContent=t;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d}
-  function send(){
-    var t=inp.value.trim();if(!t)return;inp.value='';
-    addMsg(t,'user');var th=addMsg(NAME+' is thinking...','think');
-    fetch(API+'/chat',{method:'POST',mode:'cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,agent:ID,to:ID,sender:'user'})})
-      .then(function(r){return r.json()}).then(function(d){th.remove();addMsg(d.reply&&d.reply.content?d.reply.content:'...','agent')})
-      .catch(function(){th.remove();addMsg('Connection error. Try again.','think')});
-  }
-  go.addEventListener('click',send);
-  inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-})();
-</script>
+      <!-- Content -->
+      <div class="content">
+
+        <!-- ══ Section 1: Vault ══════════════════════════ -->
+        <section>
+          <div class="section-header">
+            <div class="section-title-row">
+              <div class="section-title">Your Vault</div>
+              <div class="section-badge">4 keypairs</div>
+            </div>
+            <div class="section-action">+ New Keypair</div>
+          </div>
+
+          <div class="vault-grid">
+
+            <!-- Card 1: Primary ECDSA (featured) -->
+            <div class="keypair-card primary">
+              <div class="keypair-card-top">
+                <div>
+                  <div class="keypair-name">Primary ECDSA</div>
+                  <div class="keypair-type">P-256 · secp256r1</div>
+                </div>
+                <div class="keypair-status">
+                  <div class="status-dot active"></div>
+                  Active
+                </div>
+              </div>
+              <div class="keypair-id">0x4f2a9c3b1d8e7f05a6b2…8c1e</div>
+              <div class="keypair-meta">
+                <div class="meta-item">
+                  <span class="meta-label">Created</span>
+                  <span class="meta-value">2025-01-14</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Rotated</span>
+                  <span class="meta-value">2025-06-01</span>
+                </div>
+              </div>
+              <div class="strength-row">
+                <span class="strength-label">Strength</span>
+                <div class="strength-track">
+                  <div class="strength-fill" style="width:97%"></div>
+                </div>
+                <span class="strength-pct">97%</span>
+              </div>
+              <div class="keypair-actions">
+                <button class="btn-outline primary">↺ Rotate</button>
+                <button class="btn-outline">⬆ Export</button>
+              </div>
+            </div>
+
+            <!-- Card 2: Backup ECDSA -->
+            <div class="keypair-card">
+              <div class="keypair-card-top">
+                <div>
+                  <div class="keypair-name">Backup ECDSA</div>
+                  <div class="keypair-type">P-384 · secp384r1</div>
+                </div>
+                <div class="keypair-status">
+                  <div class="status-dot active"></div>
+                  Active
+                </div>
+              </div>
+              <div class="keypair-id">0xb3d1a7e4c09f2518d4f3…2a7c</div>
+              <div class="keypair-meta">
+                <div class="meta-item">
+                  <span class="meta-label">Created</span>
+                  <span class="meta-value">2025-02-08</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Rotated</span>
+                  <span class="meta-value">2025-05-20</span>
+                </div>
+              </div>
+              <div class="strength-row">
+                <span class="strength-label">Strength</span>
+                <div class="strength-track">
+                  <div class="strength-fill" style="width:92%"></div>
+                </div>
+                <span class="strength-pct">92%</span>
+              </div>
+              <div class="keypair-actions">
+                <button class="btn-outline">↺ Rotate</button>
+                <button class="btn-outline">⬆ Export</button>
+              </div>
+            </div>
+
+            <!-- Card 3: Post-Quantum (rotating) -->
+            <div class="keypair-card">
+              <div class="keypair-card-top">
+                <div>
+                  <div class="keypair-name">Post-Quantum</div>
+                  <div class="keypair-type">CRYSTALS-Kyber · 1024</div>
+                </div>
+                <div class="keypair-status">
+                  <div class="status-dot rotating"></div>
+                  Rotating
+                </div>
+              </div>
+              <div class="keypair-id">0x7c4e2b9a1d5f8301ec47…f390</div>
+              <div class="keypair-meta">
+                <div class="meta-item">
+                  <span class="meta-label">Created</span>
+                  <span class="meta-value">2025-03-30</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Rotated</span>
+                  <span class="meta-value">In progress</span>
+                </div>
+              </div>
+              <div class="strength-row">
+                <span class="strength-label">Strength</span>
+                <div class="strength-track">
+                  <div class="strength-fill" style="width:100%"></div>
+                </div>
+                <span class="strength-pct">100%</span>
+              </div>
+              <div class="keypair-actions">
+                <button class="btn-outline" style="opacity:.4;pointer-events:none">↺ Rotate</button>
+                <button class="btn-outline">⬆ Export</button>
+              </div>
+            </div>
+
+            <!-- Card 4: API Key -->
+            <div class="keypair-card">
+              <div class="keypair-card-top">
+                <div>
+                  <div class="keypair-name">API Key</div>
+                  <div class="keypair-type">HMAC-SHA256 · 256-bit</div>
+                </div>
+                <div class="keypair-status">
+                  <div class="status-dot active"></div>
+                  Active
+                </div>
+              </div>
+              <div class="keypair-id">0xd8e0a3f7261bc4905e2d…1b4a</div>
+              <div class="keypair-meta">
+                <div class="meta-item">
+                  <span class="meta-label">Created</span>
+                  <span class="meta-value">2025-04-11</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Rotated</span>
+                  <span class="meta-value">2025-06-10</span>
+                </div>
+              </div>
+              <div class="strength-row">
+                <span class="strength-label">Strength</span>
+                <div class="strength-track">
+                  <div class="strength-fill" style="width:88%"></div>
+                </div>
+                <span class="strength-pct">88%</span>
+              </div>
+              <div class="keypair-actions">
+                <button class="btn-outline">↺ Rotate</button>
+                <button class="btn-outline">⬆ Export</button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ══ Section 2: Active Sessions ═══════════════ -->
+        <section>
+          <div class="section-header">
+            <div class="section-title-row">
+              <div class="section-title">Active Sessions</div>
+              <div class="section-badge">5 sessions</div>
+            </div>
+            <div class="section-action">Revoke All</div>
+          </div>
+
+          <div class="sessions-table">
+            <div class="sessions-thead">
+              <div class="th">Device</div>
+              <div class="th">Location</div>
+              <div class="th">Last Active</div>
+              <div class="th"></div>
+            </div>
+
+            <!-- Current session -->
+            <div class="session-row current">
+              <div class="session-device">
+                <div class="device-icon">💻</div>
+                <div>
+                  <div class="device-name">MacBook Pro</div>
+                  <span class="device-tag current-tag">Current Session</span>
+                </div>
+              </div>
+              <div class="session-location">San Francisco, CA</div>
+              <div class="session-last-active">Just now</div>
+              <div>
+                <button class="btn-revoke disabled">Revoke</button>
+              </div>
+            </div>
+
+            <!-- iPhone -->
+            <div class="session-row">
+              <div class="session-device">
+                <div class="device-icon">📱</div>
+                <div>
+                  <div class="device-name">iPhone 15 Pro</div>
+                </div>
+              </div>
+              <div class="session-location">San Francisco, CA</div>
+              <div class="session-last-active">14m ago</div>
+              <div>
+                <button class="btn-revoke">Revoke</button>
+              </div>
+            </div>
+
+            <!-- iPad -->
+            <div class="session-row">
+              <div class="session-device">
+                <div class="device-icon">📲</div>
+                <div>
+                  <div class="device-name">iPad Pro</div>
+                </div>
+              </div>
+              <div class="session-location">Chicago, IL</div>
+              <div class="session-last-active">2h ago</div>
+              <div>
+                <button class="btn-revoke">Revoke</button>
+              </div>
+            </div>
+
+            <!-- Desktop -->
+            <div class="session-row">
+              <div class="session-device">
+                <div class="device-icon">🖥️</div>
+                <div>
+                  <div class="device-name">Mac Studio</div>
+                </div>
+              </div>
+              <div class="session-location">San Francisco, CA</div>
+              <div class="session-last-active">Yesterday</div>
+              <div>
+                <button class="btn-revoke">Revoke</button>
+              </div>
+            </div>
+
+            <!-- Suspicious session -->
+            <div class="session-row suspicious">
+              <div class="session-device session-suspicious">
+                <div class="device-icon" style="border-color:rgba(255,107,43,.35);background:rgba(255,107,43,.06)">⚠️</div>
+                <div>
+                  <div class="device-name" style="color:#FF6B2B">Unknown Device</div>
+                  <span class="device-tag suspicious-tag">Suspicious</span>
+                </div>
+              </div>
+              <div class="session-location" style="color:#FF6B2B;opacity:.85">Berlin, DE</div>
+              <div class="session-last-active">3h ago</div>
+              <div>
+                <button class="btn-revoke" style="background:rgba(255,107,43,.1);border-color:rgba(255,107,43,.35);color: var(--text);">Revoke</button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ══ Section 3: Audit Log ══════════════════════ -->
+        <section style="padding-bottom:8px">
+          <div class="section-header">
+            <div class="section-title-row">
+              <div class="section-title">Audit Log</div>
+              <div class="section-badge">recent events</div>
+            </div>
+            <div class="section-action">View All</div>
+          </div>
+
+          <div class="audit-feed">
+
+            <div class="audit-entry">
+              <div class="audit-time">09:41:02</div>
+              <div class="audit-icon">🔄</div>
+              <div class="audit-body">
+                <div class="audit-event-type rotate">KEY_ROTATE</div>
+                <div class="audit-desc">Rotation initiated on <strong>Post-Quantum</strong> key by Valeria agent</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">09:38:17</div>
+              <div class="audit-icon">⚠️</div>
+              <div class="audit-body">
+                <div class="audit-event-type alert">ALERT</div>
+                <div class="audit-desc">New session from <strong>Unknown Device</strong> in Berlin, DE — flagged as anomalous</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">09:27:54</div>
+              <div class="audit-icon">🟢</div>
+              <div class="audit-body">
+                <div class="audit-event-type session">SESSION_START</div>
+                <div class="audit-desc"><strong>MacBook Pro</strong> authenticated · San Francisco, CA</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">07:12:09</div>
+              <div class="audit-icon">🔑</div>
+              <div class="audit-body">
+                <div class="audit-event-type login">LOGIN</div>
+                <div class="audit-desc"><strong>alexa@blackroad.io</strong> signed in · passkey verified</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">Yesterday</div>
+              <div class="audit-icon">📤</div>
+              <div class="audit-body">
+                <div class="audit-event-type export">EXPORT</div>
+                <div class="audit-desc"><strong>Backup ECDSA</strong> public key exported · encrypted bundle</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">Yesterday</div>
+              <div class="audit-icon">🔄</div>
+              <div class="audit-body">
+                <div class="audit-event-type rotate">KEY_ROTATE</div>
+                <div class="audit-desc"><strong>Primary ECDSA</strong> rotated successfully · new fingerprint confirmed</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">2 days ago</div>
+              <div class="audit-icon">🔴</div>
+              <div class="audit-body">
+                <div class="audit-event-type session">SESSION_END</div>
+                <div class="audit-desc"><strong>iPad Pro</strong> session expired · 8h idle timeout</div>
+              </div>
+            </div>
+
+            <div class="audit-entry">
+              <div class="audit-time">2 days ago</div>
+              <div class="audit-icon">🟢</div>
+              <div class="audit-body">
+                <div class="audit-event-type session">SESSION_START</div>
+                <div class="audit-desc"><strong>iPad Pro</strong> authenticated · Chicago, IL</div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div><!-- /content -->
+    </main><!-- /main-panel -->
+
+  </div><!-- /app-shell -->
+</div><!-- /macos-window -->
 
 </body>
 </html>
